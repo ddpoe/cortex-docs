@@ -1,0 +1,26 @@
+{
+  "title": "Post-Implementation Documentation Protocol",
+  "tags": ["template", "protocol", "workflow"],
+  "sections": [
+    {
+      "id": "purpose",
+      "heading": "Purpose",
+      "content": "This protocol is followed by the implementer (agent or human) after completing a feature or backlog item. It ensures documentation stays current and doc-to-code links are established before the work is considered done.\n\nThe protocol is intentionally short. Use `cortex_update_section` to patch individual sections without constructing full DocJSON."
+    },
+    {
+      "id": "where-status-lives",
+      "heading": "Where Status Lives",
+      "content": "Implementation status is tracked in two places:\n\n| Doc Type | Section | Format | What it tracks |\n|---|---|---|---|\n| **Sub-feature PRD** `sub_features/*/prd.json` | `current-capabilities` | Status table: Done / In progress / Not started | Per-capability build status — **the single source of truth** |\n| **Interface specs** `interfaces/*.json` | `commands` / `tools` | Reference tables | Canonical source for CLI flags, API shapes |\n\nThe **capabilities table is the master status.** If a capability says Done, it is done. The backlog section is an append-only narrative log — do not use it as a status tracker.\n\nThe **design spec** describes what exists (architecture, sequences, decisions). Update it when the implementation changes the system structure. There is no separate user guide until the project has external users."
+    },
+    {
+      "id": "update-checklist",
+      "heading": "Update Checklist",
+      "content": "Follow this order after completing code for a feature or backlog item. Use `cortex_update_section` to patch sections directly — pass the section ID and new content as markdown.\n\n### Step 1: Sub-feature PRD capabilities table\n**Section:** `current-capabilities`\n**Action:** Change the Status column to `Done` for completed capabilities.\n**Tool:** `cortex_update_section(section_id=..., content=<updated table>)`\n\n### Step 2: Interface specs (if applicable)\n**File:** `docs/features/{feature}/interfaces/*.json`\n**Action:** Add new commands, flags, or API endpoints. Remove deprecated ones. This is the canonical reference for CLI/API shapes.\n\n### Step 3: Design spec (if architecture changed)\n**Section:** `architecture` or `sequence-diagram`\n**Action:** Update if the implementation changed the system structure or added new flows. Add decision log entries for trade-offs made during implementation.\n**Tool:** `cortex_update_section(section_id=..., content=<updated prose>)`\n\n### Step 4: Add doc-to-code links\n**Tool:** `cortex_add_link(section_id=..., node_id=...)`\n**Decision test:** If a developer rewrites the linked function, would this section need review? If yes, link it.\n**What to link:** Public entry points named in the prose, functions whose contract (inputs, outputs, behavior) is explicitly documented.\n**What NOT to link:** Private helpers, modules mentioned only for orientation, functions documented elsewhere.\n\n### Step 5: Rebuild and verify\n1. `cortex_build` — re-index so changes are in the graph\n2. `cortex_check` — verify zero `DESC_STALE` on updated sections\n3. `cortex_list_undocumented` — confirm new code nodes have `documents` edges"
+    },
+    {
+      "id": "quick-reference",
+      "heading": "Quick Reference Checklist",
+      "content": "```\n## Post-Implementation: [feature/backlog item name]\n- [ ] Sub-feature PRD: updated capabilities table to Done\n- [ ] Interface spec: added/removed commands, flags, options (if applicable)\n- [ ] Design spec: updated architecture/decisions (if architecture changed)\n- [ ] Doc-to-code links added for contract-describing sections\n- [ ] cortex_build — completed without errors\n- [ ] cortex_check — zero DESC_STALE on updated sections\n- [ ] cortex_list_undocumented — no gaps for this feature\n```"
+    }
+  ]
+}

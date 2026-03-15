@@ -1,0 +1,31 @@
+{
+  "title": "Design Spec: Test Runner",
+  "tags": ["design", "v1", "indexer", "test-runner"],
+  "sections": [
+    {
+      "id": "architecture",
+      "heading": "Architecture Overview",
+      "content": "The test runner integrates pytest execution with the cortex knowledge graph. It runs tests, parses results, maps them to cortex nodes via `validates` edges, and stores everything in the `test_runs` / `test_results` tables.\n\n```\ncortex/index/\n  runner.py         # detect_runner(): finds pytest via pixi/poetry/plain\n                    # json_report_available(): checks for pytest-json-report plugin\n                    # get_git_sha(): captures current git commit\n  junit_parser.py   # parse_junit_xml(): parses JUnit XML output\n                    # parse_json_report(): parses pytest-json-report JSON\n  test_mapper.py    # map_results_to_nodes(): resolves pytest IDs → cortex node IDs\n                    # via 'validates' edges in the graph\n```\n\nReport format priority: pytest-json-report (richer data) → JUnit XML (universal fallback). The report file is written to `.cortex/_run.json` or `.cortex/_run.xml` and deleted after parsing.",
+      "level": 2
+    },
+    {
+      "id": "sequence-diagram",
+      "heading": "Sequence of Operations",
+      "content": "```\ncortex test . [--node X] [--path Y] [PYTEST_ARGS...]\n  1. Resolve scope:\n     --node → find all 'validates' edges pointing TO that node → collect test file locations\n     --path → find all prod nodes under that path → find their validators → test locations\n     (no scope) → run all tests\n  2. Build runner command:\n     detect_runner() tries: pixi run pytest, poetry run pytest, plain pytest\n  3. Select report format:\n     json_report_available() → --json-report flag\n     else → --junit-xml flag\n  4. Run pytest (subprocess)\n  5. Parse report file:\n     parse_json_report() or parse_junit_xml() → list of TestResult\n  6. Map results to cortex nodes:\n     map_results_to_nodes() resolves pytest node IDs to cortex node IDs\n     via the 'validates' edge graph\n  7. Persist (unless --no-save):\n     Insert test_run row (timestamp, git SHA, duration, summary)\n     Insert test_result rows (node_id, status, duration, message)\n  8. Print summary + unmapped test list\n  9. Exit with pytest return code\n```",
+      "level": 2
+    },
+    {
+      "id": "decision-log",
+      "heading": "Implementation Trade-offs",
+      "content": "### pytest-json-report preferred over JUnit XML\nJSON report provides richer data (setup/teardown timing, captured output, markers). JUnit XML is the universal fallback when the plugin isn't installed.\n\n### Subprocess execution, not in-process pytest\nRunning pytest as a subprocess isolates the test environment from cortex's own imports. It also respects the project's runner (pixi, poetry, conda).\n\n### Unmapped tests are recorded but flagged\nTests that can't be mapped to a cortex node (no `validates` edge) are still recorded in `test_results` with `node_id=NULL`. The summary output lists them to prompt the user to add `cortex link` edges.",
+      "level": 2,
+      "tags": ["decisions"]
+    },
+    {
+      "id": "verification-plan",
+      "heading": "Technical Verification",
+      "content": "- `--node` scoping correctly restricts to tests with validates edges to that node\n- `--path` scoping finds transitive test coverage across all nodes under the path\n- JUnit XML and JSON report parsing produce equivalent TestResult lists\n- Unmapped tests appear in summary output with guidance to use `cortex link`\n- `--no-save` runs tests but doesn't touch the database\n- Exit code matches pytest's exit code (0 = all pass, 1 = failures, 5 = no tests collected)",
+      "level": 2
+    }
+  ]
+}

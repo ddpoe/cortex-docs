@@ -1,0 +1,34 @@
+{
+  "title": "PRD: Project Switcher",
+  "tags": [
+    "prd",
+    "v1",
+    "viz",
+    "project-switcher"
+  ],
+  "sections": [
+    {
+      "id": "problem",
+      "heading": "Problem Statement",
+      "content": "Cortex viz binds to a single project root at startup. Users working across multiple projects (3-4 repos) must stop the server and restart it with a different path each time they want to inspect a different codebase. This context-switching friction discourages using the dashboard for quick cross-project checks."
+    },
+    {
+      "id": "user-stories",
+      "heading": "User Stories",
+      "content": "**US-PS-01 — Switch active project**\nAs a developer with multiple cortex-indexed projects, I want to switch the active project from a dropdown in the viz header so I can inspect a different codebase without restarting the server.\n\n**US-PS-02 — Register a new project by path**\nAs a developer, I want to type or paste a project path into the switcher and have it validated and added to the list so I can onboard a new project without editing config files.\n\n**US-PS-03 — Auto-register on startup**\nAs a developer, I want the project I launch `cortex viz` with to be automatically added to the known projects list so I don't have to manually register every project.\n\n**US-PS-04 — See project names, not just paths**\nAs a developer, I want the switcher to display human-readable project names (from cortex.toml or directory basename) so I can quickly identify which project is which.\n\n**US-PS-05 — Persist known projects across sessions**\nAs a developer, I want the list of registered projects to persist so I don't have to re-add them every time I start the server.\n\n**US-PS-06 — Clean view state on switch**\nAs a developer, I want all views (Docs, Tests, Workflows) to fully reset when I switch projects so I never see stale folder trees, test results, or workflow lists from the previous project."
+    },
+    {
+      "id": "current-capabilities",
+      "heading": "Current Capabilities",
+      "content": "| Capability | Status |\n|---|---|\n| Single project bound at startup via `run_server(project_root)` | Done |\n| Project name shown in `/api/meta` response | Done |\n| Project registry persisted at `~/.cortex/projects.json` | Done |\n| Auto-register project on `cortex viz` startup | Done |\n| `GET /api/projects` — list registered projects with active flag | Done |\n| `POST /api/projects/register` — validate and add new project | Done |\n| `POST /api/projects/switch` — hot-swap active project with lock | Done |\n| Frontend project switcher dropdown in header | Done |\n| Frontend \"Add project\" input with error feedback | Done |\n| Full `_loadProject()` reload on switch (meta + all + graph) | Done |\n| Docs/Tests/Workflow `reset()` clears cached state on switch | Done |"
+    },
+    {
+      "id": "backlog",
+      "heading": "Backlog",
+      "content": "**Folder browser dialog** — Instead of typing a path, offer a file-browser dialog for selecting project roots. This would require either a native file picker (not available in plain browser) or a server-side directory listing endpoint. Low priority since typing/pasting paths works fine.\n\n**Recently-used ordering** — Sort the project list by last-accessed time so the most frequently used projects float to the top. Would require tracking switch timestamps in the registry.\n\n**Per-project UI state preservation** — Cache filter settings, selected node, view mode, and scroll position per project in localStorage so switching back to a project restores the UI state. Currently switching resets everything via a full `/api/all` reload.\n\n**Side-by-side multi-project view** — Show two projects simultaneously for cross-project comparison. This would require namespacing all API endpoints by project and maintaining parallel state in the frontend. Significantly larger scope than the switcher.",
+      "tags": [
+        "backlog"
+      ]
+    }
+  ]
+}

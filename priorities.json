@@ -1,0 +1,55 @@
+{
+  "title": "Project Priorities",
+  "tags": [
+    "priorities",
+    "roadmap"
+  ],
+  "sections": [
+    {
+      "id": "current-focus",
+      "heading": "Current Focus",
+      "content": "~~AST call graph `validates` edges~~ — Completed. Merged to master.\\n\\nCurrent: **Viz Test Dashboard** — migrate from dFlow-based to cortex-native data. PRD written at `docs/features/viz/sub_features/test-dashboard/prd.json`. Key work items: unified `/api/tests` endpoint, cortex-native tier classification, `test_results` table integration, run-from-dashboard via `POST /api/test/run`."
+    },
+    {
+      "id": "v1-scope",
+      "heading": "V1 Scope",
+      "content": "V1 includes three features. The indexer is the core; MCP server is the agent interface; viz dashboard is the developer observability layer.\n\n### Indexer\nThe foundation. Scans Python code and DocJSON docs, builds a graph in SQLite, detects staleness, runs tests, and gates PRs.\n\n**Sub-features:**\n- [ ] **Scanning** — AST-based Python scanning, DocJSON scanning, dFlow decorator detection, edge auto-generation, rename detection. *Init/build split done; AST validates edges done.*\n- [ ] **Staleness** — Mtime fast path, per-function hash comparison, CODE_STALE / DESC_STALE / COVERAGE_STALE / STRUCTURAL_DRIFT / CONTENT_STALE statuses, `cortex check` with `--fail-on`, `cortex mark-clean`. *Rename from DESC_STALE → CODE_STALE in progress.*\n- [ ] **History** — Infrastructure only in V1. Every upsert records a `node_history` row. No CLI browsing — data feeds `cortex report`.\n- [ ] **Test Runner** — `cortex test` runs pytest with JUnit/JSON parsing, scoped by `--node` or `--path`, results stored in DB.\n- [ ] **Verification & Gate** — `node_verification` table, `cortex report` (deterministic impact report), GitHub action gate.\n\n### MCP Server\n- [ ] **MCP Server** — Exposes cortex to AI agents via MCP protocol (stdio transport). 12 tools implemented: build, render, list, graph, search, check, history, mark-clean, write-doc, add-link, render-doc, list-undocumented. PRD needs to be finalized.\n\n### Viz Dashboard\nDeveloper observability layer. Already implemented as working code; promoted to V1 because it's essential for understanding what the indexer is doing during development.\n\n**Sub-features (PRDs needed):**\n- [ ] **Graph View** — Interactive Cytoscape.js node graph with type coloring and staleness rings. *Implemented, PRD TODO.*\n- [ ] **List View** — Filterable, sortable node table. *Implemented, PRD TODO.*\n- [ ] **Detail Panel** — Node metadata drawer (docstring, history, test results, dFlow steps). *Implemented, PRD TODO.*\n- [ ] **Test Dashboard** — Test explorer with tier badges, JUnit results, validates edges, fixture linking. *Implemented but needs migration from dFlow-based to cortex-native data. PRD TODO — highest priority.*\n- [ ] **Doc Manager** — DocJSON viewer/editor with section editing, link picker, Mermaid diagrams. *Implemented, PRD TODO.*\n- [ ] **Workflow View** — dFlow workflow/task explorer with step drill-down and Monaco source. *Implemented, PRD TODO.*\n- [ ] **Cross-Doc View** — Cross-document section view. *Implemented, PRD TODO.*",
+      "links": [
+        {
+          "node_id": "cortex::docs.features.indexer.prd"
+        },
+        {
+          "node_id": "cortex::docs.features.indexer.sub_features.scanning.prd"
+        },
+        {
+          "node_id": "cortex::docs.features.indexer.sub_features.staleness.prd"
+        },
+        {
+          "node_id": "cortex::docs.features.indexer.sub_features.history.prd"
+        },
+        {
+          "node_id": "cortex::docs.features.indexer.sub_features.test-runner.prd"
+        },
+        {
+          "node_id": "cortex::docs.features.indexer.sub_features.verification-gate.prd"
+        },
+        {
+          "node_id": "cortex::docs.features.mcp-server.prd"
+        },
+        {
+          "node_id": "cortex::docs.features.viz.prd"
+        }
+      ]
+    },
+    {
+      "id": "next-up",
+      "heading": "Next Up",
+      "content": "Ordered queue after the current focus (Viz Test Dashboard).\\n\\n1. **Viz refactoring Tier 1–2** — Remove dead light-mode CSS (~1,100 lines, 1 hour, zero risk) and extract `view-utils.js` (~300 lines of duplication across `tests.js`/`workflow.js`/`detail.js`/`list.js`/`docs.js`, 2–3 hours). Do these before adding any new viz features.\\n\\n2. **Test dashboard string matching fix** — Tighten the dFlow tier classification join from bare function name to `(function_name, file_path)`. Low effort, fixes a silent misclassification bug that will worsen as test count grows. See test dashboard PRD backlog.\\n\\n3. **Test dashboard UX: collapsed module groups + name search** — Default group-by-module with collapsed groups, plus a name search box. Highest-impact fix for the tests tab scaling problem. See test dashboard PRD backlog.\\n\\n4. **Viz refactoring Tier 3–4** — Decompose `docs.js` into 4 focused modules and split `server.py` into route groups. Do after Tier 1–2 are done.\\n\\n5. **dFlow ADR-001: dflow-annotations extraction** — Stabilize Python scanners, decouple per-marker from sequence validation, extract dflow-annotations Python package, then create dflow-annotations JS/TS package. Prerequisite to the JS scanner.\\n\\n6. **Cortex ADR-006: JS/TS scanner** — Add `js_scanner.py` using tree-sitter. Only starts after dflow-annotations JS package is shipped and at least one internal JS/TS project uses it.\\n\\n7. **ADR-005: Axiom unification** — Merge dFlow, Cortex, DocJSON into one package. Starts when dFlow API is stable and cross-DB joins become a maintenance burden (currently acceptable).\""
+    },
+    {
+      "id": "blocked",
+      "heading": "Blocked",
+      "content": "Nothing currently blocked."
+    }
+  ]
+}

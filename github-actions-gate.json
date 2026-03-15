@@ -1,0 +1,31 @@
+{
+  "title": "GitHub Actions Commit Gate (Planned)",
+  "tags": ["gh-action", "ci", "verification", "planned"],
+  "sections": [
+    {
+      "id": "intent",
+      "heading": "Intent",
+      "content": "The GitHub Actions gate is a read-only check that runs against the existing `cortex.db` on every PR. It does not rebuild the index — it inspects the verification state of every node and fails the check if any nodes do not meet the configured strictness level.\n\nThe primary output of a failed check is an **impact report**: a structured summary of every non-clean node, what changed, and what still needs to be verified. This gives reviewers immediate context on what the PR affected and what sign-off is still required."
+    },
+    {
+      "id": "strictness-levels",
+      "heading": "Strictness Levels",
+      "content": "The action is configurable with a strictness level that controls what counts as acceptable:\n\n| Level | Description |\n|---|---|\n| `stale` | Fails if any node is DESC_STALE or STRUCTURAL_DRIFT |\n| `agent` | Fails if any node is not at minimum AGENT_VERIFIED |\n| `human` | Fails if any node is not HUMAN_VERIFIED — agent verification alone is insufficient |\n\nStrictness level is set per-repo in the workflow YAML. Teams can choose the appropriate gate for their trust model."
+    },
+    {
+      "id": "impact-report",
+      "heading": "Impact Report",
+      "content": "When the gate fails, it produces an impact report: a structured document listing every non-clean node, its current status, what code changed, and what verification is still outstanding. The report is uploaded as a PR artifact and can be loaded into cortex viz so reviewers can see all affected nodes in context — alongside the graph, their docs, and their tests — before approving the PR.\n\nThe PEV agent system will generate these reports automatically when it runs against a PR, including what the agent changed, what it verified, and what it flagged for human review."
+    },
+    {
+      "id": "resolution-paths",
+      "heading": "Resolution Paths",
+      "content": "When the gate fails, there are two paths to resolution:\n\n**Human resolution:** The reviewer opens cortex viz, reviews the impact report and affected nodes, and manually marks nodes clean. The PR check re-runs against the updated `cortex.db`.\n\n**Agent resolution:** The PEV agent is triggered by the failed check, updates stale documentation, records decisions, and marks nodes verified at the appropriate level. If strictness is `human`, a human must still review and promote the agent's work to HUMAN_VERIFIED via cortex viz before the gate passes.\n\nIn both cases the impact report in cortex viz is the review surface — the human does not need to dig through diffs manually."
+    },
+    {
+      "id": "dependencies",
+      "heading": "Dependencies (Not Yet Implemented)",
+      "content": "This feature depends on the following not-yet-implemented pieces:\n\n- `node_verification` table in `cortex.db`\n- `--fail-on` and `--format json` flags on `cortex check`\n- PEV agent system report generation\n- Cortex viz impact report panel\n\nThe design is intentional but implementation is deferred until the verification layer is in place."
+    }
+  ]
+}

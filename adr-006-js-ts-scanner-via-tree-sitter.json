@@ -1,0 +1,42 @@
+{
+  "title": "ADR-006: JS/TS Scanner via tree-sitter",
+  "tags": [
+    "adr",
+    "architecture",
+    "scanner",
+    "javascript",
+    "typescript"
+  ],
+  "sections": [
+    {
+      "id": "status",
+      "heading": "Status",
+      "content": "**Status:** Proposed\n\n**Date:** 2026-03-14\n\n**Decider:** Dante"
+    },
+    {
+      "id": "context",
+      "heading": "Context & Problem Statement",
+      "content": "Cortex currently scans only Python files. The existing `module_scanner.py` uses Python's `ast` stdlib module to extract functions, build a `name_map` from imports, detect `@workflow`/`@task` decorators, and emit `validates` edges via call graph analysis.\n\nTwo forces are pushing toward JS/TS scanning:\n\n1. **dFlow ADR-001 (polyglot annotations)** — `dflow-annotations` will ship a JS/TS package (`npm install dflow-annotations`) so JS/TS projects can use `workflow()`, `task()`, and `Step()` markers. Those annotations need to be indexed by Cortex the same way Python decorators are.\n\n2. **Cortex self-hosting** — The viz dashboard itself is ~11k lines of JS across 9 files. Having those files in the Cortex graph enables staleness tracking, function-level history, and test coverage for the viz codebase.\n\nThe core scanner algorithm — build a name_map from imports, walk call nodes, emit validates edges — is the same for Python and JS/TS. The only difference is the parser."
+    },
+    {
+      "id": "decision",
+      "heading": "The Decision",
+      "content": "We will add a JS/TS scanner (`cortex/scanners/js_scanner.py`) using `tree-sitter` with the `tree-sitter-javascript` and `tree-sitter-typescript` grammars. It produces the same `CortexNode`/`CortexEdge` output as `module_scanner.py` and is wired into `builder.py` for `.js`, `.ts`, `.jsx`, and `.tsx` files.\n\n### Why tree-sitter\n\nPython's `ast` stdlib is free and always available. JS has no equivalent in Python-land. Options:\n\n| Option | Verdict |\n|---|---|\n| `tree-sitter` (Python bindings) | **Chosen.** Fast, pure Python C extension, handles all JS/TS variants. Same engine VS Code uses. Grammars available for JS, TS, TSX. |\n| `esprima` via Node subprocess | Requires Node installed — breaks the pure-Python install story. |\n| Regex / line scanning | Brittle, misses arrow functions, class methods, object methods. |\n\n`tree-sitter` also future-proofs the scanner architecture — adding R, Julia, or any other language is a grammar swap, not an algorithm rewrite.\n\n### Function identification differences\n\nPython functions are identified by name prefix (`test_` → test, otherwise production). JS/TS functions have five syntactic forms:\n\n```ts\n// Named function declaration\nfunction loadData(path: string) { ... }\n\n// Arrow function assigned to const\nconst loadData = (path: string) => { ... }\n\n// workflow() wrapper — dflow-annotations HOF pattern\nconst loadData = workflow('Load CSV', (path: string) => { ... });\n\n// Class method\nclass Pipeline { run() { ... } }\n\n// Object method shorthand\nconst pipeline = { run() { ... } };\n```\n\nAll five are extracted as `atomic_process` nodes. The `workflow()` and `task()` wrapper patterns are detected by recognizing the call expression shape: `workflow(string_literal, function_expression)`.\n\n### Test function identification\n\nPython tests are identified by `test_` prefix. JS tests are identified by framework wrapper calls:\n\n- Jest / Vitest: `test('name', fn)`, `it('name', fn)`, `describe('name', fn)`\n- dflow-annotations: `workflow('purpose', fn)` in a test file (detected via `test_paths` config)\n\nThe scanner tags functions as `test` if they appear inside `test()` or `it()` callbacks, or if they are `workflow()` wrappers in a path matching `[cortex.scan] test_paths`.\n\n### Validates edges — same algorithm as Python\n\nThe call graph analysis works identically for ESM JS/TS:\n\n1. **Build `name_map` from ESM imports:**\n   - `import { func } from './module'` → `name_map['func'] = (module_node_id, 'func')`\n   - `import * as mod from './module'` → `name_map['mod'] = (module_node_id, None)`\n\n2. **For test-tagged functions, walk `CallExpression` nodes in the body**\n\n3. **Resolve each call against `name_map` → emit validates edge**\n\nThis is the same three-step process as `module_scanner.py` lines 345–363. ESM imports give reliable static resolution. CommonJS `require()` is supported for the static pattern `const x = require('./module')` only — dynamic requires are skipped silently.\n\n**Validates edges are NOT emitted for non-ESM files** (vanilla JS with implicit globals, like the viz dashboard's current `<script>` tag architecture). Those files get function nodes and staleness tracking but no call graph edges. This is acceptable — it matches T1 behavior in the tier system.\n\n### Integration with builder.py\n\n```python\n# cortex/index/builder.py\nfor file in project_files:\n    if file.suffix == '.py':\n        nodes, edges = scan_module(file, project_root, project_id)\n    elif file.suffix in ('.js', '.ts', '.jsx', '.tsx'):\n        nodes, edges = scan_js_module(file, project_root, project_id)\n    elif file.suffix == '.json' and 'docs/' in str(file):\n        nodes, edges = scan_json_doc(file, project_root, project_id)\n```\n\nFile extension filtering (which `.js`/`.ts` files to scan) is configurable via `[cortex.scan] js_paths` in `cortex.toml`, mirroring the existing `test_paths` pattern.\n\n### Dependency\n\n`tree-sitter` and `tree-sitter-javascript`/`tree-sitter-typescript` are added as optional dependencies:\n\n```\npip install cortex[js]       # adds tree-sitter + JS/TS grammars\npip install cortex[all]      # everything\n```\n\nWhen the `[js]` extra is not installed, the builder silently skips `.js`/`.ts` files with a one-time warning. No import error, no crash."
+    },
+    {
+      "id": "relationship-to-adrs",
+      "heading": "Relationship to Other ADRs",
+      "content": "- **dFlow ADR-001 (polyglot annotations)** — prerequisite. The JS scanner is only useful once `dflow-annotations` JS package exists and users are writing annotated JS/TS workflows. The scanner should not be built until ADR-001 is active.\n- **ADR-005 (Axiom unification)** — neutral. The JS scanner slots into either the current Cortex scanner architecture or the future Axiom scanner layer. No changes needed at unification time — it's just another scanner in the same registry.\n- **ADR-004 (DocJSON extraction)** — neutral. The JS scanner scans code files; DocJSON scans doc files. No overlap."
+    },
+    {
+      "id": "consequences",
+      "heading": "Consequences",
+      "content": "- **Positive:** JS/TS workflows annotated with `dflow-annotations` appear in the Cortex graph with the same staleness tracking, tier badges, and step display as Python workflows.\n- **Positive:** Validates edges work for ESM JS/TS projects — call graph analysis is the same algorithm as Python.\n- **Positive:** Cortex can index its own viz JS files for staleness tracking (even without validates edges, since the viz uses global objects not ESM imports).\n- **Positive:** tree-sitter architecture generalizes — adding R, Julia, or other languages is a grammar swap.\n- **Negative:** Adds a C extension dependency (`tree-sitter`) for JS scanning. Optional extra keeps it out of the base install.\n- **Negative:** Vanilla JS (non-ESM, global object pattern) gets function nodes but no validates edges. This is acceptable but means the viz dashboard itself won't have call graph data until it's refactored to use proper imports.\n- **Neutral:** The JS package is ~50 lines (dflow-annotations). The scanner is the real effort — estimated 200–400 lines mirroring `module_scanner.py`."
+    },
+    {
+      "id": "timing",
+      "heading": "Timing",
+      "content": "**This ADR is proposed, not active.** Implementation sequence:\n\n1. dFlow ADR-001 must be active (dflow-annotations JS package shipped)\n2. At least one internal JS/TS project using dflow-annotations annotations\n3. Build `js_scanner.py` using tree-sitter\n4. Wire into builder.py with `[cortex.scan] js_paths` config\n5. (Optional) Viz dashboard refactor to ESM imports — enables validates edges for viz's own code"
+    }
+  ]
+}

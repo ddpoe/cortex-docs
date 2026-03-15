@@ -1,0 +1,31 @@
+{
+  "title": "Design Spec: Doc Manager",
+  "tags": ["design", "v1", "viz", "doc-manager"],
+  "sections": [
+    {
+      "id": "architecture",
+      "heading": "Architecture Overview",
+      "content": "The doc manager is implemented in `docs.js` (2505 lines) — the largest frontend module. It provides a full DocJSON viewer and inline editor within the viz dashboard.\n\n**Layout:** Two-panel: folder tree sidebar on the left, document content area on the right.\n\n**Backend endpoints:**\n- `GET /api/docs` — list all DocJSON files (with optional tag filter)\n- `GET /api/docs/{id}/raw` — raw JSON for editing\n- `GET /api/docs/{id}/render` — rendered markdown + section metadata\n- `PUT /api/docs/{id}` — save full JSON back to disk\n- `POST /api/docs` — create new doc file\n- `POST /api/docs/{id}/move` — rename/move file\n- `POST /api/docs/mkdir` — create subfolder\n- `POST /api/docs/rescan` — re-scan docs directory\n- `POST /api/docs/import` — import Markdown as DocJSON\n- `GET /api/docs/subdirs` — folder tree data\n\n**Key features:**\n1. Folder tree navigation with expand/collapse persistence (sessionStorage)\n2. Rendered view with markdown rendering (including Mermaid diagrams)\n3. Click-to-edit sections: textarea for content, inline heading editor\n4. Link picker: search cortex nodes and attach/detach links per section\n5. Tag management: add/remove chips at doc and section level\n6. Section management: add, remove, reorder\n7. Mermaid diagram editor with Monaco + live preview\n8. Raw JSON source toggle\n9. Wide mode toggle (persisted in localStorage)",
+      "level": 2
+    },
+    {
+      "id": "sequence-diagram",
+      "heading": "Key Interactions",
+      "content": "### Open Document\n```\nUser clicks doc in folder tree:\n  1. GET /api/docs/{id}/render \u2192 rendered markdown + section data\n  2. GET /api/docs/{id}/raw \u2192 raw JSON (for editing)\n  3. Render content area: rendered markdown view\n  4. Build TOC from sections\n  5. Mark _dirty = false\n```\n\n### Edit Section\n```\nUser clicks edit icon on a section:\n  1. Replace rendered HTML with <textarea> containing raw content\n  2. Auto-resize textarea\n  3. On blur or save: update _rawDoc.sections[idx].content\n  4. Mark _dirty = true\n  5. Re-render that section only (optimistic)\n```\n\n### Save Document\n```\nUser clicks Save button (appears when _dirty=true):\n  PUT /api/docs/{id}  body: _rawDoc (full JSON)\n  Mark _dirty = false\n  Re-fetch rendered view\n```\n\n### Link Picker\n```\nUser clicks link icon on a section:\n  Open search overlay\n  User types partial node ID or name\n  GET /api/search?q=...  \u2192  results\n  User clicks a result \u2192 add to section.links[]\n  Mark _dirty = true\n```",
+      "level": 2
+    },
+    {
+      "id": "decision-log",
+      "heading": "Implementation Trade-offs",
+      "content": "### 2500-line monolith\nDocs.js handles rendering, editing, link management, tag management, folder operations, Mermaid editing, and raw view. This is large but avoids the complexity of splitting state across modules when all doc operations share the same `_rawDoc` object.\n\n### Textarea editing vs WYSIWYG\nSection content is edited in a plain textarea rather than a WYSIWYG editor. This keeps the implementation simple and preserves markdown formatting exactly. The Mermaid diagram editor is the exception: it uses Monaco for syntax highlighting with live preview.\n\n### Full JSON save (PUT)\nEvery save sends the entire JSON document rather than section-level patches. This avoids conflict resolution at the cost of slightly larger payloads. For typical DocJSON files (<50KB), this is negligible.",
+      "level": 2,
+      "tags": ["decisions"]
+    },
+    {
+      "id": "verification-plan",
+      "heading": "Technical Verification",
+      "content": "- Folder tree renders correct hierarchy and persists expand/collapse state\n- Click-to-edit opens textarea with correct content\n- Save writes changes to disk and re-renders correctly\n- Link picker search returns relevant nodes and adds to section.links\n- Tag add/remove updates chips and marks dirty\n- Section add/remove/reorder updates TOC\n- Mermaid diagrams render in preview and update live in Monaco\n- Wide mode toggle persists across page loads\n- Raw JSON toggle shows formatted source",
+      "level": 2
+    }
+  ]
+}

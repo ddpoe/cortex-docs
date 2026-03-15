@@ -1,0 +1,38 @@
+{
+  "title": "Design Spec: Test Dashboard",
+  "tags": [
+    "design",
+    "v1",
+    "viz",
+    "test-dashboard"
+  ],
+  "sections": [
+    {
+      "id": "architecture",
+      "heading": "Architecture Overview",
+      "content": "The test dashboard is implemented in `tests.js`. It provides a three-panel layout: filter panel | test list | test detail + Monaco source viewer.\n\n**Data sources (fetched on load):**\n- `GET /api/tests` — unified endpoint: cortex DB test nodes + dFlow DB tier classification\n- `GET /api/fixtures` — pytest fixtures with validates edges\n- `POST /api/test/run` — triggers test execution\n\n**Tier system (from dFlow DB, optional):**\n- **T3** — `@workflow(purpose=...)` + `Step()` markers (fully annotated)\n- **T2** — `@workflow(purpose=...)` present, no steps\n- **T1** — no `@workflow` decorator (plain pytest function)\n\n**Node filtering:**\n- Only `atomic_process` nodes are included (excludes module-level `composite_process` nodes)\n- Nodes tagged `test:fixture` are excluded\n- Function names must start with `test_`\n\n**Filters:**\n- Quick toggles: has steps, has critical, has validates, tier filter\n- Result filter: all / passed / failed / no result (from cortex `test_results`)\n- Group by: none / module / tier / pass-fail status\n- Module checklist with text search\n- Smart grouping: tier option hidden when all tests are T1\n\n**Detail + source viewer:** Selecting a test shows its metadata (purpose, inputs, outputs, critical), fixture list, step table, validates edges, and source code in a Monaco editor with line-number highlighting at the function's `line_start`.",
+      "level": 2
+    },
+    {
+      "id": "sequence-diagram",
+      "heading": "Key Interactions",
+      "content": "### Load\n```\nTests.load():\n  Fetch: /api/tests (unified — cortex nodes + dFlow tier data)\n  Fetch: /api/fixtures\n  Index fixtures by cortex_node_id\n  Tests._render()\n```\n\n### Filter\n```\nUser toggles filter checkbox:\n  Tests._applyFilters() → filtered list\n  Tests._renderList(filtered)\n  Preserve selected test if still visible\n```\n\n### Select Test\n```\nUser clicks test in list:\n  Tests._selectedId = id\n  GET /api/test-detail/{cortex_id} → tier, validates, fixtures, steps\n  GET /api/source?path=... → source code\n  Render detail column + Monaco editor\n  Highlight function line (line_start from level_3_location)\n  Highlight step lines in Monaco\n```\n\n### Run Tests\n```\nUser clicks Run button:\n  POST /api/test/run {path: \"tests/test_foo.py\"}\n  Disable all run buttons, show spinner\n  On completion: refresh test list with updated results\n```",
+      "level": 2
+    },
+    {
+      "id": "decision-log",
+      "heading": "Implementation Trade-offs",
+      "content": "### Separate Monaco instance from Workflow\nTests.js manages its own Monaco editor independently from Workflow.js. This avoids state conflicts when switching between views. The trade-off is ~200 extra lines of Monaco setup code.\n\n### Unified endpoint replaces T1 normalization\nPreviously T1 tests came from a separate `/api/t1_tests` endpoint and were normalized to match the dFlow item shape. Now all tests come from a single `/api/tests` endpoint that queries cortex DB directly. The unified shape eliminates the normalization layer.\n\n### dFlow DB queried by function name matching\nTier classification matches dFlow function names against cortex test node short names. This avoids requiring a foreign key or ID mapping between the two databases. The trade-off is that name collisions across modules could cause mismatches, but the function-level granularity makes this unlikely.\n\n### atomic_process filter prevents module-level leaks\nModule-level `composite_process` nodes (e.g. `test_ast_validates_e2e`) were appearing in the test list because their names start with `test_`. The SQL filter `node_type = 'atomic_process'` ensures only function-level nodes appear. This also prevents null `line_start` values that caused the frontend to highlight line 1.\n\n### cortex.toml test_paths for workflow/test separation\nTest functions decorated with `@workflow` (for tier promotion) were appearing in the Workflows tab. Rather than using a different decorator, `cortex.toml` `[cortex.scan] test_paths` defines path prefixes to exclude from `/api/workflows`. This keeps the decorator model simple while allowing project-level configuration.\n\n### Test results from cortex DB\nTest results come from the cortex `test_results` table (populated by `cortex test`), replacing raw JUnit XML/JSON file parsing.",
+      "level": 2,
+      "tags": [
+        "decisions"
+      ]
+    },
+    {
+      "id": "verification-plan",
+      "heading": "Technical Verification",
+      "content": "- Tier badges (T1/T2/T3) correctly classify tests based on dFlow DB presence\n- Test result badges (pass/fail/skip) from cortex `test_results` table\n- Filter toggles correctly narrow the visible list\n- Group by module / tier / pass-fail creates collapsible sections\n- Smart grouping hides tier option when all tests are T1\n- Detail panel shows validates edges and fixture list\n- Monaco editor highlights correct function line (not line 1)\n- No module-level nodes appear in /api/tests (all items have non-null line_start)\n- `/api/workflows` excludes test functions when `test_paths` is configured\n- `POST /api/test/run` triggers pytest and returns structured results\n- Test suite: `tests/test_viz_test_dashboard.py` covers all dashboard endpoints",
+      "level": 2
+    }
+  ]
+}

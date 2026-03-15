@@ -1,0 +1,35 @@
+{
+  "title": "ADR-002: Mtime-then-Hash Staleness Detection",
+  "tags": [
+    "adr",
+    "architecture",
+    "decision",
+    "staleness"
+  ],
+  "sections": [
+    {
+      "id": "status",
+      "heading": "Status",
+      "content": "**Status:** Amended\n\n**Date:** 2025-02-10\n\n**Amended:** 2026-03-14\n\n**Decider:** Dante\n\n**Amendment:** The original decision used `DESC_STALE` to mean \"code changed, docs weren't updated.\" The status vocabulary has since been revised: that case is now `CODE_STALE`, and `DESC_STALE` is repurposed to mean \"doc updated without code changing\" (the `DESC_ONLY` history case). See the Staleness Design Spec for the full updated vocabulary.",
+      "level": 2
+    },
+    {
+      "id": "context",
+      "heading": "Context & Problem Statement",
+      "content": "Cortex needs to detect when a node's documentation is out of date relative to its source code. A naive approach — re-parsing every file and comparing hashes on every `cortex check` — is too slow for large projects with hundreds of files. However, relying solely on file modification timestamps (mtime) produces false positives: saving a file without changing any function body would flag every node in that file as potentially stale. We needed a two-tier approach that is fast in the common case (nothing changed) but precise when a file has been touched.",
+      "level": 2
+    },
+    {
+      "id": "decision",
+      "heading": "The Decision",
+      "content": "We will use a two-tier staleness detection strategy:\n\n**Tier 1 — mtime check (fast path):** Compare the file's current `mtime` against the stored `mtime` from the last scan. If `current_mtime <= stored_mtime`, all nodes in that file are CLEAN. This skips the vast majority of files on every check.\n\n**Tier 2 — per-function hash check (precise path):** When a file's mtime has changed, re-parse it with Python's `ast` module. For each function, split the AST node into a code body and a docstring, then compute a 16-character hash of each (`_hash16`). Compare `code_hash` and `desc_hash` against the stored values:\n- `code_hash` changed but `desc_hash` unchanged → `CODE_STALE` (code changed, docs weren't updated)\n- `desc_hash` changed but `code_hash` unchanged → `DESC_STALE` (doc updated without code changing — prose may have drifted speculatively)\n- Function missing from AST → `STRUCTURAL_DRIFT` (function was renamed or deleted)\n- No stored hash → `CLEAN` (unverified baseline; `UNVERIFIED` is no longer a visible status)\n- Otherwise → `CLEAN`\n\nFor `composite_process` (module-level) nodes, staleness is inherited from children — the worst child status propagates up via `composes` edges. For `document` nodes, staleness is edge-derived: a doc section is `CONTENT_STALE` when a linked code node has changed after the section was last written.",
+      "level": 2
+    },
+    {
+      "id": "consequences",
+      "heading": "Consequences",
+      "content": "- **Positive:** `cortex check` runs in milliseconds on unchanged projects — mtime comparison is a single `stat()` call per file.\n- **Positive:** Per-function granularity means editing one function does not flag unrelated functions in the same file as stale.\n- **Positive:** The `ast`-based split (via `_split_function`) correctly handles nested functions, decorators, and multi-line docstrings — regex would fail on these.\n- **Positive:** Separate `code_hash` and `desc_hash` lets us distinguish CODE_STALE (code changed, docs didn't) from DESC_STALE (docs changed, code didn't).\n- **Negative:** The `ast` module only works for Python files. Non-Python source files (JS, SQL, etc.) fall back to whole-file hashing, which is less granular.\n- **Negative:** mtime can be unreliable across file systems (e.g. NFS, git checkout with reset-mtime). In practice this causes a re-parse (tier 2), not incorrect results — it's a performance penalty, not a correctness issue.\n- **Neutral:** The viz server initial load uses `_compute_staleness_from_history` (history-table only, zero file I/O) while `_compute_staleness_rich` and the CLI do the full hash check. These two paths must be kept in sync.",
+      "level": 2
+    }
+  ]
+}

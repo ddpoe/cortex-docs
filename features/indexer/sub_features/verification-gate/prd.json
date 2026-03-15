@@ -1,0 +1,31 @@
+{
+  "title": "PRD: Verification & Gate",
+  "tags": ["prd", "v1", "indexer", "verification", "gate", "ci"],
+  "sections": [
+    {
+      "id": "problem",
+      "heading": "Problem Statement",
+      "content": "There is currently no automated enforcement that documentation is current before a PR merges. Agents can mark nodes clean and run tests, but nothing prevents stale, unverified nodes from merging. There is also no structured artifact for a developer to review what the agent verified — the developer either has to trust the agent blindly or audit the index manually. The verification gate closes this loop: a CI check that fails on unresolved stale nodes, and a deterministic impact report that gives the developer everything they need to review in one place before approving the PR."
+    },
+    {
+      "id": "user-stories",
+      "heading": "User Stories",
+      "content": "**US-VG-01 — CI gate on stale nodes**\nAs a developer, I want a GitHub action that fails if any stale nodes remain unverified so that documentation drift cannot merge without being addressed.\n\n**US-VG-02 — Impact report for PR review**\nAs an agent, I want to generate a deterministic impact report summarizing all changes since the last merge — what changed, what was verified and by whom, what tests passed — so that the developer has a single artifact to review before approving the PR.\n\n**US-VG-03 — Agent vs human distinction**\nAs a developer, I want agent-verified nodes to be clearly distinguished from human-verified nodes in the report so that I can see at a glance what was assessed automatically vs what a human reviewed.\n\n**US-VG-04 — Mark clean with reason**\nAs an agent, I want to mark a stale node clean with a reason and my identity so that the impact report shows what I assessed and why — not just that verification happened.\n\n**US-VG-05 — PR approval as human sign-off**\nAs a developer, I want the impact report to be the review artifact so that approving the PR serves as human sign-off on the batch without requiring per-node manual verification steps."
+    },
+    {
+      "id": "verification-model",
+      "heading": "V1 Verification Model",
+      "content": "The gate uses the **Impact Report + PR Approval** model.\n\n1. Agent makes code changes, updates docs, runs tests, marks stale nodes clean with a reason (`verified_by='agent'`).\n2. Agent runs `cortex report` — pure SQL read over `node_history`, `node_verification`, and `test_results`. No LLM. Deterministic and fast.\n3. Impact report is attached to the PR. Developer reads it as part of code review and approves the PR. That approval is the human review of the batch.\n4. GitHub action runs `cortex check --fail-on any` and verifies an impact report was generated. If either fails, the PR cannot merge.\n\n**V1 gate behavior:** agent-verified is sufficient to pass. The `verified_by` field distinguishes `'agent'` from `'human'` in the database, but the gate does not require `'human'` in V1. This keeps the workflow moving while the agent system is being established. `--strict-human` mode (require human sign-off at node level) is V2.\n\n**Impact report contents:**\n- Changed nodes since last checkpoint: node ID, change type, current staleness status, verification status (verified_by, reason, timestamp)\n- CONTENT_STALE doc sections: section ID, heading, triggering code node\n- Test results per changed node: latest status, test ID, duration\n- Summary counts: total changed, verified by agent, verified by human, unverified, tests passed/failed"
+    },
+    {
+      "id": "current-capabilities",
+      "heading": "Current Capabilities",
+      "content": "| Capability | Status |\n|---|---|\n| `node_verification` table | Done |\n| `cortex mark-clean` command | Done |\n| `verified_by` field (`'agent'` / `'human'`) | Done |\n| `reason` field in verification | Done |\n| `code_hash_at` (verification auto-expires on code change) | Done |\n| `cortex check --fail-on` for CI | Done |\n| `cortex report` command | Not started |\n| GitHub Actions workflow | Not started |"
+    },
+    {
+      "id": "backlog",
+      "heading": "Backlog",
+      "content": "**`cortex report`** — The core V1 deliverable. See the Verification Model section above for the full content spec. Outputs structured markdown. Saved to `.cortex/report.md` and printed to stdout. The GitHub action checks for the existence of this file.\n\n**GitHub Actions workflow** — A composable `cortex-gate` action that (1) runs `cortex check --fail-on any` and (2) checks that `.cortex/report.md` exists and was generated after the last commit. Configurable `project-root` input. V1 accepts agent-verified as passing.\n\n**`--strict-human` gate mode** — Require `verified_by='human'` on all verifications for CI to pass. Useful once the agent workflow is mature and you want to enforce that a human personally reviewed every change. Adds a `--strict-human` flag to the GitHub action and to `cortex check`.\n\n**Per-node human sign-off command** — `cortex verify <node_id>` for a developer to mark a specific node as human-verified from the CLI without going through the full mark-clean flow. Enables fine-grained sign-off without the PR approval being the only human touchpoint.\n\n**Report diffing** — Compare two reports (current vs last merged) to show only what is net-new in this PR. Reduces noise when a repo accumulates a long history of agent-verified nodes."
+    }
+  ]
+}

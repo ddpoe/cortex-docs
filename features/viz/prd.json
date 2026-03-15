@@ -1,0 +1,41 @@
+{
+  "title": "PRD: Viz Dashboard",
+  "tags": ["prd", "v1", "viz"],
+  "sections": [
+    {
+      "id": "problem",
+      "heading": "Problem Statement",
+      "content": "TODO: Articulate why a visual dashboard is needed. Consider: developers and tech leads need a bird's-eye view of the codebase knowledge graph — staleness hotspots, test coverage gaps, and documentation health — that the CLI alone cannot convey quickly. The viz dashboard makes that information interactive and explorable.",
+      "level": 2,
+      "tags": ["todo"]
+    },
+    {
+      "id": "user-stories",
+      "heading": "User Stories",
+      "content": "TODO: Write user stories. Suggestions:\n- As a developer I want to see a graph of my codebase so I can understand module dependencies at a glance\n- As a tech lead I want to filter by staleness status so I can triage documentation debt\n- As a developer I want to click a node and see its docstring, history, and test results in a side panel\n- As a developer I want to browse and edit DocJSON docs inline so I don't have to switch to a text editor\n- As a CI engineer I want an API endpoint that returns staleness counts so I can build dashboard widgets",
+      "level": 2,
+      "tags": ["todo"]
+    },
+    {
+      "id": "requirements",
+      "heading": "Requirements",
+      "content": "TODO: Prioritize and finalize requirements. Current implementation covers:\n- Interactive Cytoscape.js graph with type-based coloring and staleness border rings\n- Filterable node list table with sortable columns\n- Detail drawer showing node metadata, summary, docstring, dFlow steps, history, and test results\n- DocJSON viewer/editor with section-level editing, link picker, Mermaid diagram editor\n- Workflow & task explorer with step drill-down and Monaco source viewer\n- Test explorer with JUnit integration, fixture linking, tier badges (T1/T2/T3)\n- Focus mode: ego-network exploration from a seed node with configurable depth and direction\n- Real-time rescan: POST /api/rescan re-indexes and refreshes\n- Staleness check panel: GET /api/check returns per-node staleness",
+      "level": 2,
+      "tags": ["todo", "interface"]
+    },
+    {
+      "id": "non-goals",
+      "heading": "Non-Goals",
+      "content": "TODO: Confirm non-goals. Likely candidates:\n- Real-time collaboration (multi-user editing)\n- Authentication or access control (local-only tool)\n- Persistent server deployment (intended for `cortex viz` local sessions)\n- Mobile-responsive layout",
+      "level": 2,
+      "tags": ["todo"]
+    },
+    {
+      "id": "icebox",
+      "heading": "Icebox / Future Ideas",
+      "content": "TODO: Capture stretch goals. Ideas from the codebase:\n- Diff view: show code changes between history checkpoints\n- Coverage heatmap overlay on the graph\n- Export graph as SVG/PNG\n- Keyboard shortcuts for node navigation\n- Dark mode toggle",
+      "level": 2,
+      "tags": ["todo"]
+    }
+  ]
+}

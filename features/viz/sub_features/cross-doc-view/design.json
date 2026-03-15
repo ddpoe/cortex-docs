@@ -1,0 +1,57 @@
+{
+  "title": "Design Spec: Cross-Document Section View",
+  "tags": ["design", "viz", "cross-doc-view", "doc-manager"],
+  "sections": [
+    {
+      "id": "architecture",
+      "heading": "Architecture Overview",
+      "content": "The cross-document section view allows querying sections across all DocJSON documents by tag, returning a merged result grouped by source document. This enables viewing — and eventually editing — all sections with a given tag (e.g. `interface`, `api`, `contract`) in a single unified panel, regardless of which document they live in.\n\n**Core idea:** DocJSON sections already carry tags (both in the `doc_sections.tags` column and the normalized `tags` table). The cross-doc view queries the `tags` table joined to `doc_sections` to produce a filtered, multi-document section list.\n\n**Backend (implemented):**\n- `query_doc_sections_by_tags()` in `cortex/index/db.py` — SQL query joining `doc_sections`, `docs`, and `tags` with configurable any/all matching and a threshold via `HAVING COUNT(DISTINCT t.tag) >= ?`\n- `GET /api/docs/sections?tags=...&match=any|all` in `cortex/viz/server.py` — API endpoint that returns sections grouped by source document, with all editable fields (id, heading, content, level, tags, position)\n\n**Frontend (not yet implemented):**\n- Composite view mode in `docs.js` that renders sections from multiple documents in a single scrollable panel\n- Per-document dirty tracking and save-back via existing `PUT /api/docs/{id}`\n- Integration with sidebar tag filter to toggle between document-list and cross-doc section modes",
+      "level": 2
+    },
+    {
+      "id": "implementation-status",
+      "heading": "Implementation Status",
+      "content": "### Done\n\n**1. DB query function** (`cortex/index/db.py :: query_doc_sections_by_tags`)\n- Accepts a list of tags and a `match_all` flag\n- Joins `doc_sections` → `docs` → `tags` to find matching sections\n- Returns all `doc_sections` columns plus `doc_title` from the parent doc\n- Groups by `ds.id` with `HAVING COUNT(DISTINCT t.tag) >= threshold`\n- Ordered by `d.id, ds.position` for stable output\n\n**2. API endpoint** (`GET /api/docs/sections`)\n- Query params: `tags` (comma-separated, required), `match` (`any` or `all`, default `any`)\n- Groups results by source document: `{ doc_id, doc_title, sections[] }`\n- Each section includes: `id`, `heading`, `content`, `level`, `tags`, `position`\n- Returns summary counts: `doc_count`, `section_count`, `tags_queried`, `match` mode\n\n### Not Yet Done\n\n- Frontend composite view panel in `docs.js`\n- Section-level tags included in sidebar filter `_allTags()` (currently only doc-level tags are collected)\n- Inline editing in composite view with per-doc dirty tracking\n- Save-back logic (read-modify-write per affected source document)\n- MCP tool exposure (`cortex_query_sections`)",
+      "level": 2,
+      "tags": ["status"]
+    },
+    {
+      "id": "sequence-diagram",
+      "heading": "Key Interactions",
+      "content": "### Cross-Doc Query\n```\nUser selects tags in sidebar filter (e.g. 'interface'):\n  1. Toggle from doc-list mode to cross-doc section mode\n  2. GET /api/docs/sections?tags=interface&match=any\n  3. Response: { docs: [ { doc_id, doc_title, sections: [...] }, ... ] }\n  4. Render sections grouped by source doc in content area\n```\n\n### Edit in Composite View (future)\n```\nUser edits a section from doc-A in the cross-doc view:\n  1. Section is identified by (doc_id, section.id)\n  2. Load full raw JSON for doc-A: GET /api/docs/{doc_id}/raw\n  3. Patch the specific section in the raw JSON\n  4. PUT /api/docs/{doc_id} with updated JSON\n  5. Mark that source doc as clean, re-render section\n```\n\n### Tag-Based Filtering\n```\nQuery supports two modes:\n  match=any  → section has ANY of the requested tags (OR)\n  match=all  → section has ALL of the requested tags (AND)\n\nSQL: JOIN tags t ON t.node_id = ds.id\n     WHERE t.tag IN (?, ?, ...)\n     GROUP BY ds.id\n     HAVING COUNT(DISTINCT t.tag) >= threshold\n```",
+      "level": 2
+    },
+    {
+      "id": "data-model",
+      "heading": "Data Model",
+      "content": "No new tables or columns required. The feature leverages existing schema:\n\n| Table | Role in Query |\n|---|---|\n| `doc_sections` | Source rows: id, doc_id, heading, content, level, tags (JSON), position |\n| `docs` | Joined for `doc_title` |\n| `tags` | Normalized tag index: `(node_id, tag)` — section node IDs live here alongside code node IDs |\n\n**Key insight:** Section nodes are stored in the `nodes` table with `node_type = 'document'`. When `upsert_node` runs, it syncs `node.tags` → `tags` table unconditionally (even when `discovery_only=True` skips the body write). This means tag edits in the viz UI take effect on the next `cortex build` — no schema changes needed.",
+      "level": 2
+    },
+    {
+      "id": "backend-scanner",
+      "heading": "Backend & Scanner Details",
+      "content": "### DB function: `query_doc_sections_by_tags()`\nLocation: `cortex/index/db.py`\n\n```python\ndef query_doc_sections_by_tags(\n    db_path: Path,\n    tags: list[str],\n    *,\n    match_all: bool = False,\n) -> list[dict]:\n```\n\nJoins `doc_sections` → `docs` → `tags`. Uses `HAVING COUNT(DISTINCT t.tag) >= threshold` where threshold is `len(tags)` for match_all or `1` for match_any.\n\n### API endpoint: `GET /api/docs/sections`\nLocation: `cortex/viz/server.py`\n\nQuery params:\n- `tags` (string, required) — comma-separated tag names\n- `match` (string, optional) — `any` (default) or `all`\n\nResponse shape:\n```json\n{\n  \"tags_queried\": [\"interface\"],\n  \"match\": \"any\",\n  \"doc_count\": 3,\n  \"section_count\": 7,\n  \"docs\": [\n    {\n      \"doc_id\": \"cortex::docs.features.viz.prd\",\n      \"doc_title\": \"PRD: Viz Dashboard\",\n      \"sections\": [\n        { \"id\": \"...\", \"heading\": \"...\", \"content\": \"...\", \"level\": 2, \"tags\": [...], \"position\": 0 }\n      ]\n    }\n  ]\n}\n```\n\n### Scanner: `json_doc_scanner.py`\nNo scanner changes were needed. The existing scanner already:\n- Reads `section.tags` from the JSON and sets `tags=sec_tags` on the `CortexNode`\n- `upsert_node()` syncs tags to the normalized `tags` table unconditionally (even with `discovery_only=True`)\n- Both file-level and section-level doc nodes use `node_type='document'` — distinguished by `#` in the node ID\n\n### Tag sync flow\n```\nJSON file edited → cortex build → json_doc_scanner reads section.tags\n→ CortexNode(tags=sec_tags) → upsert_node() → DELETE+INSERT into tags table\n→ cross-doc query can now find the section via tags table JOIN\n```",
+      "level": 2
+    },
+    {
+      "id": "adr-candidate-doc-subtypes",
+      "heading": "ADR Candidate: Document Node Subtypes",
+      "content": "**Status:** Proposed — not yet implemented. Consider writing a formal ADR if this feature grows.\n\n### Problem\nBoth file-level doc nodes and section-level doc nodes share `node_type = 'document'`. The only way to distinguish them is checking for `#` in the node ID — a fragile string convention used in `_compute_staleness_rich()` and elsewhere.\n\n### Proposal\nUse the existing `subtype` column (already in the `nodes` schema) to distinguish:\n- `node_type = 'document'`, `subtype = 'file'` → file-level doc node\n- `node_type = 'document'`, `subtype = 'section'` → section-level doc node\n\n### Why `subtype` over a new `node_type`\n- **Zero breakage**: every existing query that matches `node_type == 'document'` still works\n- **Graph viz unchanged**: coloring, filtering, and layout all key on `node_type` — no updates needed\n- **Precedent**: `subtype = 'external_package'` is already used for code nodes\n- **Cleaner queries**: `WHERE node_type = 'document' AND subtype = 'section'` vs `WHERE id LIKE '%#%'`\n\n### Why a new `node_type` would be worse\n- Breaks `_compute_staleness_rich()`, graph coloring, list filters, MCP tools — anywhere that branches on `node_type == 'document'`\n- Requires updating the ontology, Cytoscape style selectors, filter dropdowns\n- The distinction (file vs section) is a sub-classification, not a fundamentally different entity kind\n\n### Impact if adopted\n- `json_doc_scanner.py`: set `subtype='file'` on doc node, `subtype='section'` on section nodes (~2 lines)\n- `_compute_staleness_rich()`: replace `if '#' in n.id` with `if n.subtype == 'section'`\n- Cross-doc query: could optionally filter on `subtype = 'section'` for extra safety\n- Requires `cortex build --full` to populate subtype on existing nodes",
+      "level": 2,
+      "tags": ["adr-candidate", "decisions"]
+    },
+    {
+      "id": "decision-log",
+      "heading": "Implementation Trade-offs",
+      "content": "### Query via `tags` table, not `doc_sections.tags` JSON column\nSection tags exist in two places: the normalized `tags` table and the `doc_sections.tags` JSON column. The query uses the `tags` table because it supports indexed lookups and multi-tag matching via GROUP BY/HAVING. Parsing JSON in SQLite (`json_each`) would work but is slower and less portable.\n\n### Grouped by source document, not flat list\nThe API returns sections grouped by source doc rather than a flat list. This preserves provenance — the UI knows exactly where each section came from for save-back. It also gives natural visual grouping in the composite view.\n\n### `match=any` as default\nOR-matching is the default because the common use case is \"show me all sections tagged with any of these topics.\" AND-matching is available for narrowing (e.g. `tags=interface,pipeline&match=all` for sections tagged with BOTH).\n\n### Full-doc save (not section-level patches)\nEditing a section in the composite view will save the entire parent document via the existing `PUT /api/docs/{id}` endpoint. This reuses the proven save path in the doc manager, avoids a new section-level PATCH endpoint, and keeps the JSON file as the single source of truth.",
+      "level": 2,
+      "tags": ["decisions"]
+    },
+    {
+      "id": "verification-plan",
+      "heading": "Technical Verification",
+      "content": "### Backend (can test now)\n- `GET /api/docs/sections?tags=interface` returns sections from multiple documents\n- `GET /api/docs/sections?tags=interface,api&match=all` returns only sections with both tags\n- Empty tags param returns 422\n- No matching sections returns `{ doc_count: 0, section_count: 0, docs: [] }`\n- Section tags are present in `tags` table after `cortex build`\n\n### Frontend (future)\n- Sidebar tag filter includes section-level tags, not just doc-level\n- Selecting a tag switches to cross-doc view mode\n- Sections render with edit controls matching single-doc mode\n- Editing a section from doc-A and saving writes only to doc-A\n- Dirty indicators shown per source document\n- Unsaved changes warning when navigating away",
+      "level": 2
+    }
+  ]
+}

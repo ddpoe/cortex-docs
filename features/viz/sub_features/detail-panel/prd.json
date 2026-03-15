@@ -1,0 +1,20 @@
+{
+  "title": "PRD: Detail Panel",
+  "sections": [
+    {
+      "id": "problem",
+      "heading": "Problem Statement",
+      "content": "The detail panel is the primary place a developer acts on a staleness signal — they click a stale node in the graph and need to understand why it is stale and what to do about it. Currently the panel shows only a staleness badge and a raw history table. The badge tells you the label; the history table shows raw change_type events that require mental parsing to connect to a cause. There is no explanation row, no linked cause for dependent-node staleness (CONTENT_STALE, COVERAGE_STALE), and no mark-clean button despite the design spec describing one.\n\nThe result: a developer clicks a CODE_STALE node and sees the badge, but has to scroll to the history table, find the CODE_ONLY row, read its date, compare it mentally to the node's last update, and infer what happened. For CONTENT_STALE and COVERAGE_STALE nodes the cause is not surfaced at all — the linked code node that triggered the staleness is invisible."
+    },
+    {
+      "id": "user-stories",
+      "heading": "User Stories",
+      "content": "**US-DP-01 — Understand why a node is CODE_STALE**\nAs a developer, I want to see \"Code changed [date] · Description last updated [date]\" when a node is CODE_STALE so I know exactly how far the doc has drifted without reading the raw history table.\n\n**US-DP-02 — Mark a CODE_STALE node clean**\nAs a developer, I want a Mark Clean button on CODE_STALE nodes so I can record that I have reviewed the code change and the existing doc still holds, with a reason attached and my identity stored.\n\n**US-DP-03 — Understand why a node is DESC_STALE**\nAs a developer, I want to see \"Description updated [date] without a matching code change\" when a node is DESC_STALE so I know to review whether the prose drifted intentionally or needs to be reverted to match the code.\n\n**US-DP-04 — See the cause of CONTENT_STALE with a jump link**\nAs a developer, I want to see which code node caused a doc section to be CONTENT_STALE — with its ID, the date it changed, and a jump button to navigate to it — so I know exactly what changed and what prose needs updating.\n\n**US-DP-05 — See the cause of COVERAGE_STALE with a jump link**\nAs a developer, I want to see which code node caused a test to be COVERAGE_STALE — with its ID, the date it changed, and a jump button to navigate to it — so I know which function change I need to review the test against.\n\n**US-DP-06 — See verification attribution on VERIFIED nodes**\nAs a developer, I want to see who verified a node (human or agent), when, and why when it shows VERIFIED, so I can judge whether the verification is still trustworthy before relying on the doc.\n\n**US-DP-07 — Clear message on STRUCTURAL_DRIFT**\nAs a developer, I want a clear explanation when a node is STRUCTURAL_DRIFT stating that the source location no longer exists, so I know a rebuild is needed rather than a doc update."
+    },
+    {
+      "id": "current-capabilities",
+      "heading": "Current Capabilities",
+      "content": "| Capability | Status |\n|---|---|\n| Staleness badge at top of panel | Done |\n| Raw history table (date, change_type, git SHA) | Done |\n| CODE_STALE explanation row (code changed date · doc last updated date) | Not started |\n| Mark Clean button for CODE_STALE nodes | Not started |\n| DESC_STALE explanation row | Not started |\n| CONTENT_STALE cause row with linked node ID + jump button | Not started |\n| COVERAGE_STALE cause row with linked node ID + jump button | Not started |\n| VERIFIED attribution row (verified by, date, reason) | Not started |\n| STRUCTURAL_DRIFT explanation message | Not started |\n\n**API additions required:**\n- `GET /api/nodes/{id}` — add `staleness_cause: {node_id, title, changed_at}` field for CONTENT_STALE and COVERAGE_STALE nodes\n- `GET /api/nodes/{id}/verify` response — already returns verification data; ensure `verified_by`, `verified_at`, `reason` are included in node detail response"
+    }
+  ]
+}

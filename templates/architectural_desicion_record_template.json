@@ -1,0 +1,30 @@
+{
+  "title": "Template: Architectural Decision Record",
+  "tags": ["template", "adr", "architecture", "decision"],
+  "sections": [
+    {
+      "id": "status",
+      "heading": "Status",
+      "content": "**Status:** Accepted | Proposed | Superceded\n\n**Date:** 2024-03-06\n\n**Decider:** [Your Name]",
+      "level": 2
+    },
+    {
+      "id": "context",
+      "heading": "Context & Problem Statement",
+      "content": "What was the specific technical challenge or limitation that forced this decision? (e.g., 'Regex was failing to parse nested Python functions').",
+      "level": 2
+    },
+    {
+      "id": "decision",
+      "heading": "The Decision",
+      "content": "We will use [Technology/Pattern] to solve this problem because [Reason]. \n\n*Example:* 'We will use the Python `ast` module instead of Regex to ensure we capture accurate function boundaries for the staleness check.'",
+      "level": 2
+    },
+    {
+      "id": "consequences",
+      "heading": "Consequences",
+      "content": "What are the trade-offs of this decision?\n\n- **Positive:** Better accuracy, supports nested logic.\n- **Negative:** Slower execution time compared to regex.\n- **Neutral:** Adds a dependency on the Python standard library `ast` module.",
+      "level": 2
+    }
+  ]
+}

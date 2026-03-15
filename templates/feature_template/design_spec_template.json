@@ -1,0 +1,36 @@
+{
+  "title": "Template: Design Spec",
+  "tags": ["template", "design", "technical"],
+  "sections": [
+    {
+      "id": "architecture",
+      "heading": "Architecture Overview",
+      "content": "Explain the high-level system flow here."
+    },
+    {
+      "id": "sequence-diagram",
+      "heading": "Sequence of Operations",
+      "content": "Describe the logic flow with a Mermaid diagram:\n\n",
+      "level": 2
+    },
+    {
+      "id": "data-modeling",
+      "heading": "Data Model & Graph Schema",
+      "content": "Define the structure of the nodes and edges added to the Cortex graph. For your project, this is where you define how code nodes link to doc nodes.\n\n| Node Type | Properties | Purpose |\n|---|---|---|\n| `code_node` | `id, logic_hash` | Represents the function body |\n| `doc_node` | `id, content_hash` | Represents the docstring |",
+      "level": 2
+    },
+    {
+      "id": "decision-log",
+      "heading": "Implementation Trade-offs",
+      "content": "Explain why you chose this path over alternatives. \n\n*Example:* 'I chose AST parsing over basic file timestamps because timestamps flag doc changes even when the logic is identical, leading to false positives.'",
+      "level": 2,
+      "tags": ["decisions"]
+    },
+    {
+      "id": "verification-plan",
+      "heading": "Technical Verification",
+      "content": "How will you verify this works technically? List specific test cases or edge cases (e.g., 'Ensure nested functions are correctly identified by the AST walker').",
+      "level": 2
+    }
+  ]
+}

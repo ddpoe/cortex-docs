@@ -1,0 +1,31 @@
+{
+  "title": "Design Spec: Workflow View",
+  "tags": ["design", "v1", "viz", "workflow-view"],
+  "sections": [
+    {
+      "id": "architecture",
+      "heading": "Architecture Overview",
+      "content": "The workflow view is implemented in `workflow.js` (682 lines). It provides a three-panel layout: filter panel | workflow/task list | step detail + Monaco source viewer.\n\n**Data sources:**\n- `GET /api/workflows` — dFlow `@workflow`-decorated functions\n- `GET /api/tasks` — dFlow `@task`-decorated functions\n- `GET /api/workflow/{id}/steps` — step breakdown with delegation and source\n- `GET /api/source` — source file content for Monaco\n\n**Two modes:** The view toggles between \"Workflow\" and \"Task\" mode via role buttons. Each mode fetches its own endpoint and maintains independent loaded state.\n\n**Step explorer:** Selecting an item loads its step breakdown (Step/AutoStep markers) with:\n- Step number, name, purpose\n- Inputs, outputs, critical annotations\n- Delegation targets (AutoStep → @task function)\n- Source location for Monaco highlighting\n\n**Filters:** Has steps, has critical, linked to graph, group by module, module checklist with search.",
+      "level": 2
+    },
+    {
+      "id": "sequence-diagram",
+      "heading": "Key Interactions",
+      "content": "### Load Workflows\n```\nWorkflow.load():\n  GET /api/workflows \u2192 {available, workflows[]}\n  Store in _workflows, mark _workflowsLoaded\n  Workflow._render()\n```\n\n### Switch to Tasks\n```\nUser clicks Task button:\n  Workflow._setRole('task')\n  GET /api/tasks \u2192 {available, tasks[]}\n  Store in _tasks, mark _tasksLoaded\n  Workflow._render()\n```\n\n### Select Workflow/Task\n```\nUser clicks item in list:\n  Workflow._selectedId = id\n  GET /api/workflow/{id}/steps \u2192 {steps[], delegates[], source{}}\n  Render step table in detail column\n  Load source into Monaco editor\n  Highlight step lines with decorations\n```\n\n### Filter\n```\nUser toggles filter:\n  Workflow._applyFilters() \u2192 filtered list\n  Workflow._renderList(filtered)\n```",
+      "level": 2
+    },
+    {
+      "id": "decision-log",
+      "heading": "Implementation Trade-offs",
+      "content": "### Separate caching for workflows vs tasks\nWorkflows and tasks are fetched and cached independently (`_workflowsLoaded` / `_tasksLoaded`). This avoids re-fetching when toggling between modes. The trade-off is two code paths that are nearly identical.\n\n### Monaco for source viewing\nThe workflow and tests views both embed Monaco editors for source code viewing. This provides syntax highlighting, line numbers, and step-line decorations. Monaco is loaded from CDN on first use (lazy load).\n\n### Step line highlighting\nStep markers are highlighted in Monaco using decorations (colored left-margin markers + background highlight). This connects the step table to the exact source lines.",
+      "level": 2,
+      "tags": ["decisions"]
+    },
+    {
+      "id": "verification-plan",
+      "heading": "Technical Verification",
+      "content": "- Workflow list shows all @workflow-decorated functions\n- Task list shows all @task-decorated functions\n- Switching roles preserves cached data\n- Step table shows correct step_num, name, purpose, critical\n- Delegation targets are clickable links\n- Monaco loads correct file and highlights step lines\n- Filters correctly narrow the list\n- Module grouping creates collapsible sections",
+      "level": 2
+    }
+  ]
+}

@@ -1,0 +1,30 @@
+{
+  "title": "Interface: Ontology",
+  "tags": ["interface", "v1", "indexer", "ontology"],
+  "sections": [
+    {
+      "id": "overview",
+      "heading": "Overview",
+      "content": "The cortex ontology is defined in `cortex_ontology.yaml` at the project root. It specifies all valid node types, edge types, and validation rules. The builder enforces these rules at build time — invalid edges fail the build.\n\nThe ontology is based on PROV-O (W3C Provenance Ontology) principles with a process-centric model: all code is a series of processes, and the node type describes the process role, not the language construct.",
+      "level": 2
+    },
+    {
+      "id": "node-types",
+      "heading": "Node Types",
+      "content": "### atomic_process\nA leaf-level transformation unit with no sub-processes. The smallest meaningful unit of work.\n- Examples: Python function, dFlow `@task`, single pipeline step\n- Can contain: nothing\n- dFlow mapping: `@task` decorated function\n\n### composite_process\nOrchestrates or contains other processes. Scale-invariant: a module, package, pipeline, and `@workflow` are all composite_process.\n- Examples: Python module, package, dFlow `@workflow`, Snakemake pipeline\n- Can contain: `atomic_process`, `composite_process`\n- dFlow mapping: `@workflow` decorated function, any module/package\n\n### entity\nSomething consumed or produced by a process.\n- Subtypes: `data_artifact`, `config_artifact`, `model_artifact`, `external_package`\n- Examples: AnnData object, config.yaml, trained model, third-party pip package\n- dFlow mapping: `inputs=`/`outputs=` values on decorators (best-effort)\n\n### constraint\nRestricts or validates behavior of processes or entities.\n- Subtypes: `test`, `decision`, `schema`, `contract`\n- Examples: `@test_workflow` function, `@test_suite` class, design decision\n- dFlow mapping: `@test_workflow` and `@test_suite` decorated items\n\n### document\nHuman-readable description of any other node.\n- Examples: Markdown file, README, DocJSON file, notebook\n- Can contain: `document` (sections within documents)",
+      "level": 2
+    },
+    {
+      "id": "edge-types",
+      "heading": "Edge Types",
+      "content": "| Edge Type | From Types | To Types | Description |\n|---|---|---|---|\n| `consumes` | atomic_process, composite_process | entity | Process takes entity as input |\n| `produces` | atomic_process, composite_process | entity | Process creates entity as output |\n| `composes` | composite_process, atomic_process | atomic_process, composite_process | Structural containment (module→function) |\n| `delegates_to` | composite_process | atomic_process, composite_process | Runtime invocation (cross-module call) |\n| `depends_on` | atomic_process, composite_process | atomic_process, composite_process, entity | Execution/import dependency |\n| `constrains` | constraint | atomic_process, composite_process, entity | Schema/contract restriction |\n| `validates` | atomic_process, constraint | atomic_process, composite_process | Test coverage link |\n| `documents` | document | any | Documentation describes a node |\n| `supersedes` | atomic_process, composite_process, constraint | same types | Replacement/obsolescence |",
+      "level": 2
+    },
+    {
+      "id": "validation-rules",
+      "heading": "Validation Rules",
+      "content": "Enforced by `cortex/index/builder.py` at build time:\n\n| Rule | Level | Description |\n|---|---|---|\n| `require_valid_node_type` | Error | Every node must have a node_type from the ontology |\n| `require_valid_edge_type` | Error | Every edge must have an edge_type from the ontology |\n| `require_valid_edge_endpoints` | Error | Edge from/to node types must match the edge_type's allowed types |\n| `warn_empty_composite` | Warning | composite_process with no outgoing composes/delegates_to edges |\n| `report_untested_atomic` | Info | atomic_process with no inbound validates edge (untested function) |\n\nEdge validation is also enforced at runtime by `cortex link` via `cortex/ontology.py::validate_edge()`.",
+      "level": 2
+    }
+  ]
+}

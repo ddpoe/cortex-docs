@@ -1,0 +1,34 @@
+{
+  "title": "ADR-005: Unify dFlow, Cortex, and DocJSON into Axiom",
+  "tags": [
+    "adr",
+    "architecture"
+  ],
+  "sections": [
+    {
+      "id": "status",
+      "heading": "Status",
+      "content": "**Status:** Proposed\n\n**Date:** 2025-03-13\n\n**Decider:** Dante"
+    },
+    {
+      "id": "context",
+      "heading": "Context & Problem Statement",
+      "content": "dFlow (workflow runtime), Cortex (code indexer), and DocJSON (doc format parser) are currently separate codebases with separate databases. This creates three problems:\n\n1. **Cross-DB seams.** The viz dashboard must join data from both the Cortex and dFlow SQLite databases to render the test tab. Tier classification stitches Cortex node metadata with dFlow workflow/step data. Every feature that crosses the boundary pays a coordination tax.\n\n2. **Redundant schema ownership.** Both Cortex and dFlow store test-related data (Cortex: `test_runs`, `test_results`, `validates` edges; dFlow: `workflows`, `steps`, `step_results`). The AST validates edges feature (merged in `feature/ast-validates-edges`) moved `covers=` linking from dFlow into Cortex, further blurring the boundary.\n\n3. **Release coordination.** Schema changes that touch both systems require synchronized releases across repos. A monorepo with separate packages would help, but the fundamental issue is two schemas for one conceptual model.\n\nNone of these problems are blocking today. The viz cross-DB join is ~5 lines in `server.py`. But the direction is clear: the systems are converging."
+    },
+    {
+      "id": "decision",
+      "heading": "The Decision",
+      "content": "We will unify dFlow, Cortex, and DocJSON into a single Python package called **Axiom** with one shared SQLite schema.\n\n### Package structure\n\n```\naxiom/\n├── axiom/\n│   ├── dflow/        # @workflow, @task, Step(), run recording\n│   ├── docjson/      # DocJSON parser, validator, renderer\n│   ├── scanners/     # AST scanner, doc scanner\n│   ├── index/        # Builder, staleness, history\n│   ├── db/           # Unified schema, read/write helpers\n│   ├── cli/          # axiom init, build, test, check\n│   ├── viz/          # Flask dashboard (optional extra)\n│   └── mcp/          # MCP server (optional extra)\n└── pyproject.toml\n```\n\n### Installation tiers\n\n- `pip install axiom` — dFlow + docjson + indexer + CLI (pure Python + sqlite3)\n- `pip install axiom[viz]` — adds Flask dashboard\n- `pip install axiom[mcp]` — adds MCP server\n- `pip install axiom[all]` — everything\n\n### One DB, all tables, populate on use\n\nThe full schema is created on first use regardless of which features are active. A scientist using only `@workflow` and `Step()` gets a DB with `nodes`, `edges`, `staleness_log` tables that are empty. Zero overhead — SQLite doesn't care about empty tables.\n\nWhen `axiom build` runs, the scanners populate the indexer tables in the same DB. No cross-DB joins, no integration layer.\n\n### dFlow stays invisible to scientists\n\nThe end-user surface area for scientists is two imports:\n\n```python\nfrom axiom import workflow, Step\n```\n\nThe indexer, scanners, and docs infrastructure exist in the package but never activate unless called via CLI or agent tools. Scientists never see them.\n\n### Dependency direction\n\n```\ndocjson (leaf, no axiom deps)\n   ↑\naxiom.db + axiom.scanners + axiom.index (core)\n   ↑              ↑\naxiom.dflow    axiom.cli\n   ↑              ↑\naxiom.viz      axiom.mcp  (optional extras)\n```\n\n`axiom.dflow` can import `axiom.db` to write results. `axiom.scanners` can read the `workflows` table to enrich node metadata. No circular dependencies."
+    },
+    {
+      "id": "consequences",
+      "heading": "Consequences",
+      "content": "- **Positive:** Eliminates cross-DB joins in viz. One schema, one migration path. Simpler mental model — dFlow and Cortex are features of one product, not two products with an integration layer.\n- **Positive:** Scientists get the same `@workflow` + `Step()` experience with no extra complexity.\n- **Positive:** Schema changes are atomic — no coordinated releases across repos.\n- **Negative:** Larger install size for scientists who only want dFlow (but deps are pure Python + sqlite3, so negligible).\n- **Negative:** Migration effort to restructure three codebases into one package.\n- **Neutral:** The name \"Axiom\" replaces \"Cortex\" and \"dFlow\" as the public brand. dFlow can remain as an alias (`from axiom import workflow` or `from axiom.dflow import workflow`)."
+    },
+    {
+      "id": "timing",
+      "heading": "Timing",
+      "content": "This ADR is **proposed, not active**. Current priority is shipping dFlow and the viz test dashboard with the existing two-DB architecture. The unification happens when:\n\n1. dFlow has been used internally and the API is stable\n2. The viz cross-DB joins become a maintenance burden (more than ~2 features hitting the seam)\n3. There is a natural pause to do the restructuring\n\nUntil then, the janky join in `server.py` is acceptable tech debt."
+    }
+  ]
+}

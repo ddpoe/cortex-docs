@@ -1,0 +1,36 @@
+{
+  "title": "User Guide: Test Dashboard",
+  "tags": ["user-guide", "v1", "viz", "test-dashboard"],
+  "sections": [
+    {
+      "id": "overview",
+      "heading": "Overview",
+      "content": "The test dashboard lets you browse all tests in your project — annotated dFlow tests and plain pytest functions — with their results, coverage links, and source code.",
+      "level": 2
+    },
+    {
+      "id": "quick-start",
+      "heading": "Quick Start",
+      "content": "1. Click **Tests** in the top nav\n2. Browse the test list in the center panel\n3. Use filter toggles on the left to narrow down\n4. Click a test to see its detail and source code on the right",
+      "level": 2
+    },
+    {
+      "id": "core-features",
+      "heading": "Features",
+      "content": "### Tier Badges\n- **T3** = fully annotated (dFlow decorator + covers + steps)\n- **T2** = dFlow entry point without covers\n- **T1** = plain pytest function (no dFlow)\n\n### Result Badges\nWhen `cortex test` has been run, each test shows a pass/fail/skip badge from the latest JUnit results.\n\n### Filters\n- Has steps, has critical, is skeleton (NOT IMPLEMENTED)\n- Has covers (covers_count > 0)\n- Linked to graph (has cortex node ID)\n- Hide T1 (hide unannotated tests)\n- Result: all / passed / failed / no result\n- Group by: none / module / tier\n\n### Detail Panel\nShows:\n- Purpose, inputs, outputs from dFlow metadata\n- Fixtures: linked pytest fixtures with jump-to-source links\n- Steps table: step breakdown with critical annotations\n- Source code: Monaco editor with highlighted step lines",
+      "level": 2
+    },
+    {
+      "id": "configuration",
+      "heading": "Prerequisites",
+      "content": "For full functionality:\n1. Decorate tests with `@test_workflow` or `@test_suite` (dFlow)\n2. Run `cortex build .` to index the decorators\n3. Run `cortex test .` to generate JUnit results\n4. Install `pytest-json-report` for richer test data (optional)",
+      "level": 2
+    },
+    {
+      "id": "troubleshooting",
+      "heading": "Tips",
+      "content": "- **No result badge?** Run `cortex test .` to populate test results\n- **All tests show as T1?** Add dFlow decorators (`@test_workflow`, `@test_suite`) and rebuild\n- **Fixture links missing?** Add `cortex link` edges or use `covers=[]` in decorators",
+      "level": 2
+    }
+  ]
+}

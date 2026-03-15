@@ -1,0 +1,36 @@
+{
+  "title": "User Guide: Viz Dashboard",
+  "tags": ["user-guide", "v1", "viz"],
+  "sections": [
+    {
+      "id": "overview",
+      "heading": "Overview",
+      "content": "The viz dashboard is a browser-based interface for exploring the cortex knowledge graph. It provides five views: Graph, List, Workflow, Tests, and Docs — all reading from the same cortex index database.",
+      "level": 2
+    },
+    {
+      "id": "quick-start",
+      "heading": "Quick Start",
+      "content": "```bash\n# Build the index first\ncortex build .\n\n# Launch the dashboard (opens browser automatically)\ncortex viz .\n\n# Launch on a specific port without auto-open\ncortex viz . --port 9000 --no-browser\n```\n\nThe dashboard runs at `http://localhost:8741` by default.",
+      "level": 2
+    },
+    {
+      "id": "core-features",
+      "heading": "Core Functionality",
+      "content": "### Views\n- **Graph view** — Interactive Cytoscape.js visualization. Nodes are colored by type; border rings show staleness. Click a node to open the detail panel. Use the depth slider and focus mode to explore neighborhoods.\n- **List view** — Sortable table of all nodes. Columns: title, type, location, staleness, tags. Click a row to open detail.\n- **Workflow view** — Explore dFlow-decorated `@workflow` and `@task` functions. See steps, critical annotations, and source code in a Monaco editor.\n- **Tests view** — Browse `@test_workflow` and `@test_suite` functions. Filter by tier (T1/T2/T3), result status (pass/fail), and fixtures. JUnit results shown when available.\n- **Docs view** — Browse and edit DocJSON files. Folder tree navigation, section-level editing, link picker for connecting prose to code nodes, and Mermaid diagram preview.\n\n### Sidebar Filters\nThe sidebar provides filters for node type, tags, staleness status, and edge types. The \"Hide orphans\" toggle removes nodes with no visible edges after filtering.\n\n### Focus Mode\nEnter a node ID in the focus input to center the graph on that node's ego-network. Control depth (1-5 hops) and direction (in/out/both).\n\n### Rescan\nClick the Rescan button to re-index the project without restarting the server.",
+      "level": 2
+    },
+    {
+      "id": "configuration",
+      "heading": "Configuration & Options",
+      "content": "| Option | Description | Default |\n|---|---|---|\n| `--port PORT` | HTTP port for the dashboard | 8741 |\n| `--no-browser` | Don't auto-open browser on launch | Auto-open |\n\nThe dashboard auto-detects large projects (>5000 nodes) and starts in list view to avoid slow graph rendering. Switch to graph view manually when ready.\n\nLocalStorage keys used by the frontend:\n- `cortex-doc-wide` — docs wide mode\n- `cortex-doc-folders` — expanded folder state (session)\n- `cortex-workflow-id` — last selected workflow ID (session)\n- `cortex-test-id` — last selected test ID (session)",
+      "level": 2
+    },
+    {
+      "id": "troubleshooting",
+      "heading": "Best Practices & Troubleshooting",
+      "content": "### Best Practices\n- Run `cortex build .` before launching viz to ensure the database is current\n- Use focus mode to explore dense graphs — full graph rendering can be slow at scale\n- Use the Staleness filter to triage documentation debt\n\n### Common Issues\n- **Problem:** Graph is blank after launching\n- **Solution:** No nodes in database. Run `cortex build .` first.\n\n- **Problem:** Graph renders very slowly\n- **Solution:** Large project. Use list view or focus mode. The app auto-detects this and warns.\n\n- **Problem:** DocJSON changes not appearing\n- **Solution:** Click Rescan or refresh the page. The server reads docs from disk on each request.",
+      "level": 2
+    }
+  ]
+}

@@ -1,0 +1,31 @@
+{
+  "title": "Template: Product Review Document",
+  "tags": ["template", "prd", "v1"],
+  "sections": [
+    {
+      "id": "problem",
+      "heading": "Problem Statement",
+      "content": "What is the specific pain point? (e.g., 'GitHub doesn't track logic vs doc drift')."
+    },
+    {
+      "id": "user-stories",
+      "heading": "User Stories",
+      "content": "1. As a [user], I want to [action] so that [value].\n2. As a [user], I want to..."
+    },
+    {
+      "id": "requirements",
+      "heading": "V1 Requirements",
+      "content": "List the absolute 'must-haves' for this version to be useful."
+    },
+    {
+      "id": "non-goals",
+      "heading": "Non-Goals (Scope Shield)",
+      "content": "Explicitly list features that are NOT being built in this version."
+    },
+    {
+      "id": "icebox",
+      "heading": "The Icebox",
+      "content": "Put your 'cool ideas' here so you don't lose them, but don't build them yet."
+    }
+  ]
+}

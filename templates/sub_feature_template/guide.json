@@ -1,0 +1,26 @@
+{
+  "title": "Guide: Sub-Feature Templates",
+  "tags": ["template", "guide", "sub-feature"],
+  "sections": [
+    {
+      "id": "when-to-use",
+      "heading": "When to Use Sub-Feature Docs vs Feature Docs",
+      "content": "Use the **feature_template/** docs (full PRD, design spec, user guide) for top-level features — major system capabilities like the viz dashboard, the indexer, or the MCP server.\n\nUse the **sub_feature_template/** docs for components within a feature that are substantial enough to need their own documentation but don't warrant the full feature treatment. A sub-feature typically:\n\n- Lives under a parent feature (e.g., doc-manager is a sub-feature of viz)\n- Has its own user stories and backlog\n- Already has or will have a design spec and user guide\n- Doesn't need its own non-goals / scope shield (the parent feature's apply)\n\nExamples of sub-features: doc manager, graph view, test dashboard, list view, detail panel."
+    },
+    {
+      "id": "structure",
+      "heading": "Directory Structure",
+      "content": "Sub-feature docs live under their parent feature:\n\n```\ndocs/features/{feature}/sub_features/{sub_feature}/\n    prd.json          ← Sub-feature PRD (this template)\n    design.json       ← Design spec (use feature_template/design_spec_template)\n    user-guide.json   ← User guide (use feature_template/user_guide_template)\n```\n\nThe design spec and user guide templates from `feature_template/` work fine for sub-features — they don't need scaled-back versions. Only the PRD is lighter because sub-features inherit non-goals and scope from the parent."
+    },
+    {
+      "id": "sub-feature-prd",
+      "heading": "Sub-Feature PRD Sections",
+      "content": "The sub-feature PRD has 4 sections (vs 5 in the full PRD):\n\n| Section | Purpose | Difference from full PRD |\n|---|---|---|\n| **Problem Statement** | Why this sub-feature exists | Same — keep it short (2-3 sentences) |\n| **User Stories** | What users can do | Same format, prefixed US-XX-## (XX = sub-feature abbrev) |\n| **Current Capabilities** | Status table of what's built | Replaces \"V1 Requirements\" — sub-features are usually partially built |\n| **Backlog** | Planned enhancements | Replaces \"Icebox\" — less formal, one paragraph per item |\n\nNo **Non-Goals** section — sub-features inherit scope boundaries from the parent feature's PRD."
+    },
+    {
+      "id": "templates-list",
+      "heading": "Available Templates",
+      "content": "| Template | Path | Use for |\n|---|---|---|\n| Sub-feature PRD | `sub_feature_template/sub_feature_prd_template.json` | Scaled-back PRD for components within a feature |\n| Full PRD | `feature_template/product_review_document_template.json` | Top-level feature PRDs |\n| Design spec | `feature_template/design_spec_template.json` | Architecture and implementation details (any level) |\n| User guide | `feature_template/user_guide_template.json` | End-user documentation (any level) |\n| ADR | `architectural_desicion_record_template.json` | Architectural decisions |"
+    }
+  ]
+}

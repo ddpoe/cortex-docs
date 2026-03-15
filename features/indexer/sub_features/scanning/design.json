@@ -1,0 +1,75 @@
+{
+  "title": "Design Spec: Scanning",
+  "tags": [
+    "design",
+    "v1",
+    "indexer",
+    "scanning"
+  ],
+  "sections": [
+    {
+      "id": "architecture",
+      "heading": "Architecture Overview",
+      "content": "Scanning is the data-acquisition layer of the indexer. Three scanners produce `CortexNode` and `CortexEdge` lists:\n\n1. **module_scanner** (`cortex/scanners/module_scanner.py`) — AST-based Python scanner. Walks every `.py` file, extracts functions, classes, and module-level metadata. Computes per-function `code_hash` (body without docstring) and `desc_hash` (docstring only) using SHA-256[:16]. Detects dFlow decorators (`@workflow`, `@task`) via `_extract_dflow_meta()` and merges their keyword arguments (e.g. `purpose`) with docstring autodoc into `dflow_meta`. Auto-generates `composes` edges (module → function) and `validates` edges via AST call graph analysis for test-tagged functions. The call graph uses an enriched `name_map` (`dict[str, tuple[str, str | None]]`) that tracks both the module node ID and the original function name for `from mod import func` bindings, enabling resolution of both direct calls (`func()`) and attribute calls (`mod.func()`) to qualified node IDs.\n\n2. **json_doc_scanner** (`cortex/scanners/json_doc_scanner.py`) — Parses DocJSON files (`docs/**/*.json`). Creates a `document` node per file and per section. Extracts `links` arrays from sections → generates `documents` edges to referenced code nodes.\n\n3. **doc_scanner** (`cortex/scanners/doc_scanner.py`) — Handles plain Markdown files. Creates document nodes with whole-file hashing.\n\nThe builder (`cortex/index/builder.py`) orchestrates all three scanners and feeds their output into `db.upsert_node()` / `db.upsert_edge()`.\n\nThe builder exposes a `discovery_only` parameter that controls upsert behavior. `cortex init` calls `build(discovery_only=False)` for a full baseline scan — all nodes are written and baselines established. `cortex build` calls `build(discovery_only=True)` to add only new nodes while preserving existing staleness signals. There is no `--full` flag on `cortex build`; the full-reset path is always `cortex init`.",
+      "level": 2,
+      "links": [
+        {
+          "node_id": "cortex::cortex.index.builder::build"
+        },
+        {
+          "node_id": "cortex::cortex.cli::cmd_init"
+        },
+        {
+          "node_id": "cortex::cortex.cli::cmd_build"
+        },
+        {
+          "node_id": "cortex::cortex.scanners.module_scanner::scan_module"
+        },
+        {
+          "node_id": "cortex::cortex.scanners.module_scanner::_collect_functions"
+        },
+        {
+          "node_id": "cortex::cortex.scanners.json_doc_scanner::scan_single_json_doc"
+        },
+        {
+          "node_id": "cortex::cortex.scanners.doc_scanner::scan_docs"
+        },
+        {
+          "node_id": "cortex::cortex.index.db::record_code_rename"
+        },
+        {
+          "node_id": "cortex::cortex.scanners.module_scanner::_extract_dflow_meta"
+        }
+      ]
+    },
+    {
+      "id": "sequence-diagram",
+      "heading": "Sequence of Operations",
+      "content": "### Module Scanner Pipeline\n```\nFor each .py file in project:\n  1. Read source → ast.parse()\n  2. Walk AST for FunctionDef / AsyncFunctionDef / ClassDef\n  3. Per function:\n     a. _split_function(node) → (code_body_text, docstring_text)\n     b. code_hash = _hash16(code_body_text)\n     c. desc_hash = _hash16(docstring_text) if docstring else None\n     d. Build level_0 (type label), level_1 (name + summary), level_2 (full docstring)\n     e. _parse_docstring_meta(docstring, raises) → autodoc dict (params/returns/raises)\n     f. _extract_dflow_meta(func_node) → dflow_dec dict if @workflow/@task found, else None\n     g. dflow_meta = merge(autodoc, dflow_dec)  — decorator keys take precedence\n     h. Emit CortexNode(node_type='atomic_process', dflow_meta=dflow_meta, ...)\n  4. Per module:\n     a. whole_file_hash = _hash16(full_source)\n     b. Emit CortexNode(node_type='composite_process', ...)\n  5. Emit composes edges: module → each function\n  6. For test-tagged functions (test_ prefix or test file convention):\n     a. Build enriched name_map from imports: name → (module_id, original_func_name | None)\n     b. Walk function body for Call nodes\n     c. Direct calls (func()) → look up name in name_map → resolve to module_id::func_name\n     d. Attribute calls (mod.func()) → look up mod in name_map → resolve to module_id::func\n     e. Emit validates edge if resolved node exists in index\n     f. Builder silently skips validates edges whose target is not an indexed node\n```\n\n### DocJSON Scanner Pipeline\n```\nFor each .json file in docs/:\n  1. Parse JSON → extract title, tags, sections\n  2. Emit document node for the file (code_hash = hash of full JSON)\n  3. Per section:\n     a. Emit document node for the section\n     b. Emit composes edge: file doc → section\n     c. For each link in section.links:\n        Emit documents edge: section → linked node_id\n```",
+      "level": 2,
+      "links": [
+        {
+          "node_id": "cortex::cortex.scanners.module_scanner::scan_module"
+        },
+        {
+          "node_id": "cortex::cortex.scanners.module_scanner::_collect_functions"
+        }
+      ]
+    },
+    {
+      "id": "decision-log",
+      "heading": "Implementation Trade-offs",
+      "content": "### _split_function: separating code from docstring\nThe scanner must hash the code body and docstring independently so that reformatting a docstring doesn't flag the code as changed (and vice versa). `_split_function()` uses AST node offsets to extract the raw source of the function body, then strips the leading docstring via `ast.get_docstring()`. This is more reliable than regex splitting.\n\n### _hash16: truncated SHA-256\nFull SHA-256 is 64 hex chars — wasteful for a change-detection hash stored in SQLite. 16 chars (64 bits) gives a collision probability of ~1 in 4 billion, which is sufficient for per-function identity within a single project.\n\n### External packages as entity nodes\nThird-party imports (not in stdlib, not in project) are indexed as `entity` nodes with `subtype='external_package'`. They are always CLEAN in staleness checks since their source isn't in the project tree.\n\n### name_map enrichment: dict[str, str] → dict[str, tuple[str, str | None]]\nThe import `name_map` was originally `{alias: module_id}`. AST call graph analysis needs to distinguish `from mod import func` (where `func()` → `mod::func`) from `import mod` (where `mod.func()` → `mod::func`). The enriched format stores `(module_id, original_func_name | None)` — `None` for whole-module imports, the original function name for `from … import` bindings. This lets `_collect_functions` resolve both call patterns without a second pass over the imports. The builder filters validates edges whose target isn't indexed, so unresolvable calls (stdlib, third-party) are silently dropped without ontology violations.\n\n### cortex init vs cortex build\n`cortex init` calls `build(discovery_only=False)` — writes all nodes and establishes baselines. `cortex build` calls `build(discovery_only=True)` — only new nodes are inserted, existing staleness signals are preserved. This separation ensures `cortex build` is always safe to run, while `cortex init` is the explicit reset path.\n\n### _extract_dflow_meta: @workflow and @task only\nDecorator-to-`dflow_meta` extraction via `_extract_dflow_meta()` is intentionally limited to `@workflow` and `@task`. `@test_workflow` and `@test_suite` are excluded — test-oriented decorators are not product-facing workflow metadata and their presence in `dflow_meta` added noise without value. The decorator name is matched by string (`_decorator_name()` returns the unqualified name), which is consistent with how `_extract_tags` handles click/pytest decorators. The merged result (`{**autodoc, **dflow_dec}`) lets decorator keys (e.g. `purpose`) always override docstring autodoc keys of the same name.",
+      "level": 2,
+      "tags": [
+        "decisions"
+      ]
+    },
+    {
+      "id": "verification-plan",
+      "heading": "Technical Verification",
+      "content": "- Verify nested functions get separate nodes with correct parent composes edge\n- Verify async functions are detected identically to sync functions (same node_type, same code_hash for identical bodies)\n- Verify `@workflow(purpose=...)` and `@task(...)` decorator kwargs are stored in `dflow_meta`; `@test_workflow` and `@test_suite` are not captured\n- Verify `code_hash` is stable when only the docstring changes; `desc_hash` is stable when only the body changes\n- Verify DocJSON links to non-existent nodes produce documents edges without errors\n- Verify files with syntax errors are skipped gracefully — stub node returned, no exception raised\n- Verify class methods get nodes prefixed with class name with a composes edge from the module\n- Verify external package imports produce entity nodes with `subtype='external_package'`\n- Verify `composes` edges are emitted from the module node to every top-level function",
+      "level": 2
+    }
+  ]
+}

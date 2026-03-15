@@ -1,0 +1,70 @@
+{
+  "title": "PRD: Test Dashboard",
+  "tags": [
+    "prd",
+    "v1",
+    "viz",
+    "test-dashboard"
+  ],
+  "sections": [
+    {
+      "id": "problem",
+      "heading": "Problem Statement",
+      "content": "The test dashboard previously relied on two disjoint data sources: the dFlow DB for T2/T3 tests (via `/api/tests`) and the cortex DB for T1 tests (via `/api/t1_tests`). Tier classification depended on `covers_count` from dFlow's `coverage_links` table, but AST call graph `validates` edges replaced `covers=` as the source of test-to-code linking.\n\nThe dashboard has been migrated to a cortex-native architecture: a unified `/api/tests` endpoint queries cortex DB for test node discovery and dFlow DB (optionally) for tier classification. Test results come from cortex's `test_results` table. A `POST /api/test/run` endpoint triggers test runs from the browser. The `cortex.toml` `[cortex.scan] test_paths` option prevents test functions from appearing in the Workflows tab."
+    },
+    {
+      "id": "user-stories",
+      "heading": "User Stories",
+      "content": "**US-TD-01 — See all tests with pass/fail status**\\nAs a developer, I want to open the test dashboard and immediately see every test in my project with its latest pass/fail/skip status so that I can tell at a glance whether my changes broke anything.\\n\\n**US-TD-02 — Group tests by module**\\nAs a developer, I want to group tests by module so that I can focus on the test files relevant to the code I'm changing.\\n\\n**US-TD-03 — Group tests by tier**\\nAs a developer, I want to see tests grouped by annotation tier (T1/T2/T3) so that I can understand how well-documented my test suite is.\\n\\n**US-TD-04 — See which production functions a test validates**\\nAs a developer, I want to click a test and see the list of production functions it directly calls (from cortex `validates` edges) so that I understand what code this test is actually exercising.\\n\\n**US-TD-05 — Run tests from the dashboard**\\nAs a developer, I want to click a \\\"Run\\\" button on a test so that I can trigger a test run and see updated results without switching to the CLI.\\n\\n**US-TD-06 — Run all tests in a group**\\nAs a developer, I want a \\\"Run all\\\" button on any group header — whether tests are grouped by module, tier, or any other grouping — so that I can run every test in that group and see the results update in place, regardless of how I've chosen to organize the list.\\n\\n**US-TD-07 — Smart grouping availability**\\nAs a developer, I want the dashboard to only offer grouping options that are meaningful for my project — e.g. if no tests have `@workflow` annotations, tier grouping should be hidden or disabled with a hint like \\\"all tests are T1 — add @workflow to enable tier grouping\\\" — so that I'm not presented with useless grouping options.\\n\\n**US-TD-08 — Group by pass/fail status**\\nAs a developer, I want to group tests by their latest result (pass/fail/skip/no result) so that I can quickly focus on failing tests, even when I haven't annotated my tests with tiers.\\n\\n**US-TD-09 — Module groups collapsed by default**\\nAs a developer, I want module groups to be collapsed by default when grouping by module, showing only the module name and a pass/fail summary count (e.g. `test_scanner.py — 12 passed, 1 failed`), so that I can scan all modules at a glance without scrolling through a wall of individual test rows. I click a group header to expand it.\\n\\n**US-TD-10 — Search tests by name**\\nAs a developer, I want a live search box that filters the visible test list by function name so that I can jump to a specific test inside a large module without scrolling, independently of which module is selected in the module checklist.\\n\\n**US-TD-11 — Failures surface immediately on open**\\nAs a developer, I want the dashboard to default to showing only failing tests when failures exist so that I see what's broken the moment I open the tab, without having to manually apply a filter. When all tests pass, the default reverts to showing all tests.\\n\\n**US-TD-12 — Reliable tier classification**\\nAs a developer, I want tier classification (T1/T2/T3) to be accurate even when two test files contain functions with the same name, so that renaming or duplicating a test never silently changes another test's tier badge."
+    },
+    {
+      "id": "current-capabilities",
+      "heading": "Current Capabilities",
+      "content": "| Capability | Status |\\n|---|---|\\n| Three-panel layout (filters / list / detail + Monaco) | Done |\\n| Tier badges (T1/T2/T3) | Done |\\n| Tier classification from dFlow DB (decorator + step detection) | Done |\\n| Test results from cortex `test_results` table | Done |\\n| Filter toggles (steps, critical, validates, tier) | Done |\\n| Group by module / tier | Done |\\n| Group by pass/fail status | Done |\\n| Smart grouping (hide tier when all T1) | Done |\\n| Monaco source viewer with line highlighting | Done |\\n| Fixture linking via cortex `test:fixture` tag | Done |\\n| Module checklist with text search | Done |\\n| Cortex-native unified test endpoint (`/api/tests`) | Done |\\n| Validates edge display in detail panel | Done |\\n| Run tests from dashboard (single test) | Done |\\n| Run tests from dashboard (group — any grouping) | Done |\\n| Run all tests button | Done |\\n| `cortex.toml` test_paths filtering for Workflows tab | Done |\\n| Module-level node exclusion (`atomic_process` filter) | Done |\\n| Correct line-number highlighting (no fallback to line 1) | Done |\\n| Step display for T2/T3 tests | Not started |\\n| Module groups collapsed by default with summary counts (US-TD-09) | Not started |\\n| Name search box within test list (US-TD-10) | Not started |\\n| Failing-first default on dashboard open (US-TD-11) | Not started |\\n| Tier classification by (name + file path) join, not name alone (US-TD-12) | Not started |"
+    },
+    {
+      "id": "tier-classification",
+      "heading": "Tier Classification",
+      "content": "Tiers classify tests by annotation level. Classification uses two data sources: cortex DB for test node discovery and the dFlow DB for `@workflow` decorator and step detection.\n\n| Tier | Rule | What it means |\n|---|---|---|\n| T1 | No `@workflow` decorator in dFlow DB | Plain pytest function. Good docstrings are sufficient. |\n| T2 | `@workflow(purpose=...)` present, `step_count == 0` | Annotated entry point — signals intent without requiring a full narrative. |\n| T3 | `@workflow(purpose=...)` present, `step_count > 0` | Fully narrated test with `Step()` markers — readable without opening source. |\n\n**Key change:** `covers_count` is no longer a tier signal. Tiers are about annotation level (decorator + steps). Coverage is orthogonal — `validates_count` (from cortex `validates` edges) is a separate display field showing how many production functions this test directly calls.\n\n**Data source:** The viz server queries the dFlow DB directly (`_dflow_connect()`) to find functions with `@workflow` decorators (role `'workflow'`) and their step counts. It matches these by function name against cortex test nodes. The `validates` edge count comes from a cortex edge query.\n\n**Graceful degradation:** When the dFlow DB (`.dflow/workflow.db`) is absent, all tests are classified as T1. The dashboard still works — tier grouping is hidden via the smart grouping logic (US-TD-07).\n\n**Test path filtering:** The `[cortex.scan] test_paths` option in `cortex.toml` defines path prefixes for test directories (e.g. `[\"tests/\"]`). The `/api/workflows` endpoint uses this to exclude `@workflow`-decorated test functions from the Workflows tab, since test functions share the same `@workflow` decorator as production workflows.",
+      "links": [
+        {
+          "node_id": "cortex::cortex.viz.server::_dflow_connect"
+        }
+      ]
+    },
+    {
+      "id": "data-architecture",
+      "heading": "Data Architecture",
+      "content": "### Implemented Architecture\n\n```\n/api/tests     -> cortex DB (nodes tagged 'test', node_type='atomic_process')\n                  + cortex DB validates edges for coverage counts\n                  + cortex DB test_results for pass/fail status\n                  + dFlow DB (optional) for @workflow detection and step counts\n/api/t1_tests  -> deprecated, returns empty list\n/api/fixtures  -> cortex DB (test:fixture tag) — unchanged\n/api/test/run  -> POST: triggers cortex test subprocess, returns results\n/api/workflows -> dFlow DB filtered by cortex.toml test_paths\n```\n\n**Key design decisions:**\n- Test node discovery is cortex-only (nodes tagged `test`, filtered to `atomic_process` to exclude module-level nodes)\n- Tier classification queries the dFlow DB separately by function name matching — not via `dflow_meta` on cortex nodes\n- When dFlow DB is absent, all tests default to T1 (graceful degradation)\n- The `/api/workflows` endpoint reads `[cortex.scan] test_paths` from `cortex.toml` to filter out `@workflow`-decorated functions in test directories\n\n### Response shape per test item\n```json\n{\n  \"cortex_id\": \"proj::tests.test_foo::test_bar\",\n  \"name\": \"test_bar\",\n  \"module\": \"tests/test_foo.py\",\n  \"location\": \"tests/test_foo.py\",\n  \"line_start\": 42,\n  \"line_end\": 68,\n  \"docstring\": \"...\",\n  \"has_workflow\": true,\n  \"step_count\": 3,\n  \"validates_count\": 2,\n  \"validates\": [\"proj::pm.method::execute\", \"proj::pm.cli::main\"],\n  \"tier\": \"T3\",\n  \"result\": \"passed\",\n  \"result_timestamp\": \"2026-03-13T14:22:00\"\n}\n```",
+      "links": [
+        {
+          "node_id": "cortex::cortex.viz.server::get_tests"
+        },
+        {
+          "node_id": "cortex::cortex.viz.server::get_fixtures"
+        },
+        {
+          "node_id": "cortex::cortex.viz.server::run_tests"
+        },
+        {
+          "node_id": "cortex::cortex.viz.server::get_workflows"
+        }
+      ]
+    },
+    {
+      "id": "run-from-dashboard",
+      "heading": "Run Tests from Dashboard",
+      "content": "### How it works\n\nThe dashboard triggers test runs by calling a POST endpoint on the viz server, which delegates to the same runner logic as `cortex test` — detecting the runner, parsing results, and persisting to the `test_results` table.\n\n**Endpoint:** `POST /api/test/run`\n\n| Parameter | Type | Description |\n|---|---|---|\n| `path` | string (optional) | pytest path prefix, e.g. `tests/test_scanner.py` — runs all tests in that file/directory |\n| `node_id` | string (optional) | cortex node ID — runs tests scoped to that node via `validates` edges |\n\nExactly one of `path` or `node_id` must be provided. Omit both to run all tests.\n\n**Behavior:**\n- Server runs pytest as a subprocess using the auto-detected runner\n- One run at a time — subsequent requests return 409 Conflict while a run is in progress\n- UI disables all run buttons and shows a spinner during execution\n- On completion, server returns structured results (pass/fail counts, run_id)\n- Dashboard auto-refreshes the test list with updated results\n\n**\"Run\" on group headers:**\nEvery group header — whether grouped by module, tier, or pass/fail status — gets a \"Run\" button. Clicking it calls `POST /api/test/run` with `path` set to the common directory prefix of the group's tests. This scopes the pytest run to that group regardless of how tests are grouped.\n\n**\"Run\" on individual tests:**\nEach test list item has a small run button that scopes the run to that test's module file.\n\n**\"Run all\" button:**\nA prominent \"Run all tests\" button sits at the top of the filter panel and runs the full test suite.\n\n### Safety\n\nThe subprocess concern is contained:\n- The viz server constructs the pytest command using the same runner detection as `cortex test`\n- The viz server is local-only (localhost, no auth needed)\n- One-at-a-time execution prevents resource contention\n- No custom pytest args from the UI — only scoping parameters\n\n### Deferred\n- Live stdout streaming from pytest into the dashboard\n- Parallel test runs\n- Cancellation mid-run\n- Custom pytest args from the UI",
+      "links": [
+        {
+          "node_id": "cortex::cortex.viz.server::run_tests"
+        }
+      ]
+    },
+    {
+      "id": "backlog",
+      "heading": "Backlog",
+      "content": "**Step display for T2/T3** — Steps come from dFlow `steps` table via `@workflow` + `Step()` markers. If dFlow is absent, step display gracefully degrades (shows 0 steps, test classified as T2 not T3).\\n\\n**Module groups collapsed by default with summary counts (US-TD-09)** — When grouping by module, groups render collapsed showing only module name + pass/fail count. Click to expand. This is the primary fix for the tests tab scaling problem.\\n\\n**Name search box within test list (US-TD-10)** — Live text filter on function name, independent of the module checklist. Two-level filtering: module checklist narrows by file, name search narrows within the visible set.\\n\\n**Failing-first default on open (US-TD-11)** — When the dashboard loads and failing tests exist, default the result filter to \\\"failed\\\". When all tests pass, default to showing all tests.\\n\\n**Tier classification by (name + file path) join (US-TD-12)** — Tighten `/api/tests` dFlow join from bare function name to `(function_name, file_path)`. Fixes silent misclassification when two test files contain functions with the same name. The dFlow `functions` table has a `module_id` FK to `modules.path` which provides the file path for matching.\\n\\n**Live stdout streaming** — Stream pytest output into the dashboard during a test run.\\n\\n**Parallel test runs / cancellation** — One-at-a-time is the current constraint.\\n\\n**Custom pytest args from UI** — Currently only scoping parameters (`path`, `node_id`) are supported."
+    }
+  ]
+}

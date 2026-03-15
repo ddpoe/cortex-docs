@@ -1,0 +1,56 @@
+{
+  "title": "PRD: MCP Server",
+  "tags": [
+    "prd",
+    "v1",
+    "mcp-server"
+  ],
+  "sections": [
+    {
+      "id": "problem",
+      "heading": "Problem Statement",
+      "content": "TODO: Articulate the problem. Consider: AI coding agents (Copilot, Cursor, Claude) need structured access to codebase metadata — function purposes, staleness status, dependency graphs, and documentation — so they can generate context-aware code and maintain documentation. Without an MCP interface, agents must parse raw source files or rely on incomplete prompts.",
+      "level": 2,
+      "tags": [
+        "todo"
+      ]
+    },
+    {
+      "id": "user-stories",
+      "heading": "User Stories",
+      "content": "TODO: Write user stories. Suggestions:\n- As an AI agent I want to search the knowledge graph so I can find relevant functions before generating code\n- As an AI agent I want to check staleness so I can prioritize which docs to update\n- As an AI agent I want to read the dependency graph so I can understand what a function produces/consumes\n- As an AI agent I want to mark nodes as verified so my documentation reviews are recorded\n- As an AI agent I want to write DocJSON files so I can create documentation as part of my workflow\n- As a developer I want the MCP server to work with VS Code so I can use cortex tools in my editor",
+      "level": 2,
+      "tags": [
+        "todo"
+      ]
+    },
+    {
+      "id": "requirements",
+      "heading": "Requirements",
+      "content": "TODO: Prioritize and finalize requirements. Current implementation provides 14 MCP tools:\n- cortex_build: Rebuild the index\n- cortex_render: Multi-level detail rendering (level_0 through level_3); levels 1 and 2 append inline staleness badges ([CODE_STALE], [STRUCTURAL_DRIFT], etc.) for non-CLEAN nodes — CLEAN/VERIFIED nodes are annotation-free\n- cortex_list: Filtered node listing with parent_id and location scoping\n- cortex_graph: Neighborhood traversal with depth and direction\n- cortex_search: 3-stage full-text search (FTS5 → LIKE-AND → LIKE-OR)\n- cortex_check: Staleness detection; default (verbose=False) returns summary line + CONTENT_STALE sections only; verbose=True returns full problem-node table\n- cortex_history: Change timeline with stale-window annotations\n- cortex_mark_clean: Agent verification recording\n- cortex_source: Raw source body lookup by node ID\n- cortex_write_doc: DocJSON file creation/update\n- cortex_add_link: Edge creation between doc sections and code nodes\n- cortex_update_section: Patch a single section's content/heading in a DocJSON file\n- cortex_read_doc: DocJSON rendering to markdown, with optional section slug filter\n- cortex_list_undocumented: Find nodes without documentation",
+      "level": 2,
+      "tags": [
+        "todo",
+        "interface"
+      ]
+    },
+    {
+      "id": "non-goals",
+      "heading": "Non-Goals",
+      "content": "TODO: Confirm non-goals. Likely candidates:\n- Multi-user concurrent access (single-agent usage pattern)\n- Real-time push notifications (MCP is request/response)\n- Code execution or testing through MCP (use cortex_build / cortex test CLI instead)\n- Authentication (local stdio transport only)",
+      "level": 2,
+      "tags": [
+        "todo"
+      ]
+    },
+    {
+      "id": "icebox",
+      "heading": "Icebox / Future Ideas",
+      "content": "TODO: Capture stretch goals. Ideas from the codebase:\n- cortex_refactor: suggest refactoring based on dependency analysis\n- cortex_test_scope: return tests that cover a specific node (for agent-driven TDD)\n- cortex_diff: compare two history checkpoints\n- SSE transport for remote MCP access (currently stdio only)",
+      "level": 2,
+      "tags": [
+        "todo"
+      ]
+    }
+  ]
+}

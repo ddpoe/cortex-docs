@@ -1,0 +1,48 @@
+{
+  "title": "Professional Documentation & Scope Control Guide",
+  "tags": [
+    "process",
+    "management",
+    "documentation-standards"
+  ],
+  "sections": [
+    {
+      "id": "design-vs-user-docs",
+      "heading": "The Intent Gap: Design vs. User Docs",
+      "content": "Professional development requires separating **mechanics** from **utility**. \n\n* **Design Docs:** Technical 'contracts' explaining the AST logic, KD-Tree implementation, and architectural trade-offs. Audience: Developers/Future Self.\n* **User Docs:** Value-oriented guides explaining how to use the dashboard and interpret staleness reports. Audience: Lab members/Users.",
+      "level": 2
+    },
+    {
+      "id": "folder-structure",
+      "heading": "Standardized Directory Layout",
+      "content": "Maintain a `docs/` root with specific subdirectories to prevent document sprawl:\n\n```text\ndocs/\n├── prds/       # 'What & Why' (Problem definition)\n├── design/     # 'How' (Technical proposal)\n├── adrs/       # 'Architecture Decision Records' (Immutable logic logs)\n└── user/       # 'Usage' (The user-facing manual)\n```",
+      "level": 2
+    },
+    {
+      "id": "scope-creep-protection",
+      "heading": "The Scope Creep Shield",
+      "content": "To prevent project bloat, every PRD must include a **Non-Goals** section. These are explicitly 'Not-for-this-version' features. \n\n**The Rule:** If a feature is not in the PRD 'Requirements' list, it cannot be coded until the next version cycle.",
+      "level": 2,
+      "tags": [
+        "productivity",
+        "rules"
+      ]
+    },
+    {
+      "id": "versioning-workflow",
+      "heading": "V1 to V2 Evolution",
+      "content": "Do not delete documentation. Use a **Changelog** as the permanent record of progress.\n\n1. **Close V1:** Update `CHANGELOG.md` and mark the V1 PRD as 'Completed'.\n2. **Archive:** Move outdated design specs to an `archive/` folder if a total pivot occurs.\n3. **Promote:** Move V1 'Non-Goals' into V2 'Requirements' when starting the next iteration.",
+      "level": 2
+    },
+    {
+      "id": "future-concept-doc-linking",
+      "heading": "V2 Concept: Relational Documentation",
+      "content": "Future iterations may allow **Doc-to-Doc linking**. \n\n*Example:* Linking the 'User Guide' to the 'Changelog'. \n*Behavior:* If a new version is added to the Changelog, the User Guide is automatically flagged as 'Potentially Outdated' until reviewed.",
+      "level": 2,
+      "tags": [
+        "icebox",
+        "v2-feature"
+      ]
+    }
+  ]
+}

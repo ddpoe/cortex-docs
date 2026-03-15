@@ -1,0 +1,44 @@
+{
+  "title": "Design Spec: Project Switcher",
+  "tags": [
+    "design",
+    "v1",
+    "viz",
+    "project-switcher"
+  ],
+  "sections": [
+    {
+      "id": "architecture",
+      "heading": "Architecture Overview",
+      "content": "The project switcher adds a registry of known project roots and the ability to hot-swap the active project without restarting the server.\n\n**Backend (server.py):**\n- A `~/.cortex/projects.json` file stores known project paths and display names\n- Three new API endpoints: `GET /api/projects`, `POST /api/projects/register`, `POST /api/projects/switch`\n- On switch: validate the target path has `.cortex/cortex.db`, close current DB connection, re-set module globals (`_PROJECT_ROOT`, `_DB_PATH`, `_DFLOW_DB_PATH`, `_TEST_PATHS`), reload config from `cortex.toml`\n- A `threading.Lock` guards the switch to prevent races with in-flight requests (e.g. a `/api/check` staleness scan)\n\n**Frontend (app.js):**\n- A project selector dropdown in the header bar, next to the existing project name\n- Dropdown shows registered projects by display name with the active one highlighted\n- An \"Add project\" input at the bottom of the dropdown for registering new paths\n- On switch: call `POST /api/projects/switch`, then re-run `App.init()` flow (fetch `/api/meta`, `/api/all`, re-render)\n\n**CLI (cortex viz):**\n- `run_server()` auto-registers the launched project path into `~/.cortex/projects.json` before starting uvicorn",
+      "links": [
+        {
+          "node_id": "cortex::cortex.viz.server::_apply_project"
+        },
+        {
+          "node_id": "cortex::cortex.viz.server::run_server"
+        }
+      ]
+    },
+    {
+      "id": "sequence-diagram",
+      "heading": "Sequence of Operations",
+      "content": "### Server Startup\n```\ncortex viz /path/to/project\n  run_server():\n    1. Set module globals (_PROJECT_ROOT, _DB_PATH, etc.)\n    2. Load ~/.cortex/projects.json (create if missing)\n    3. Upsert current project path + name into registry\n    4. Write updated registry back to disk\n    5. Start uvicorn as before\n```\n\n### Switch Project (frontend)\n```\nUser clicks project name in dropdown:\n  1. POST /api/projects/switch  body: {\"project_root\": \"/path/to/other\"}\n  2. Server acquires _switch_lock\n  3. Server validates .cortex/cortex.db exists at target path\n  4. Server closes current DB connection\n  5. Server re-sets _PROJECT_ROOT, _DB_PATH, _DFLOW_DB_PATH, _TEST_PATHS\n  6. Server releases _switch_lock, returns new meta\n  7. Frontend calls App.init() to reload all data\n  8. Header updates to show new project name\n```\n\n### Register New Project (frontend)\n```\nUser types path into \"Add project\" input and submits:\n  1. POST /api/projects/register  body: {\"project_root\": \"/path/to/new\"}\n  2. Server validates .cortex/cortex.db exists\n  3. Server reads project name from cortex.toml (or uses dir basename)\n  4. Server upserts into ~/.cortex/projects.json\n  5. Returns updated project list\n  6. Frontend refreshes dropdown\n```"
+    },
+    {
+      "id": "data-model",
+      "heading": "Data Model",
+      "content": "### Registry File: `~/.cortex/projects.json`\n\n```json\n{\n  \"projects\": [\n    {\n      \"path\": \"/home/user/repos/cortex\",\n      \"name\": \"cortex\",\n      \"added\": \"2026-03-13T12:00:00Z\"\n    },\n    {\n      \"path\": \"/home/user/repos/pm_mvp\",\n      \"name\": \"pm_mvp\",\n      \"added\": \"2026-03-13T12:05:00Z\"\n    }\n  ]\n}\n```\n\nThe `name` field is derived from `cortex.toml [cortex] project_name` if present, otherwise the directory basename. The `path` is the absolute resolved path (used as the unique key — duplicates are upserted, not appended).\n\n### New API Endpoints\n\n| Method | Path | Request Body | Response |\n|---|---|---|---|\n| GET | `/api/projects` | — | `{projects: [{path, name, active}], active_project: path}` |\n| POST | `/api/projects/register` | `{project_root: string}` | `{projects: [...], registered: {path, name}}` |\n| POST | `/api/projects/switch` | `{project_root: string}` | Same shape as `/api/meta` (project summary after switch) |"
+    },
+    {
+      "id": "decision-log",
+      "heading": "Implementation Trade-offs",
+      "content": "### Swap globals vs. multi-tenant namespaced routes\nWe chose swapping module globals over namespacing every endpoint (`/api/{project}/...`). The swap approach touches ~50 lines of backend code and zero existing endpoints. Namespacing would require rewriting all 33 endpoints and adding per-project DB connection management. Since this is a single-user local tool, concurrent multi-project access isn't needed.\n\n### `~/.cortex/projects.json` vs. per-project config\nThe registry lives in the user's home directory rather than inside any project. This is intentional: the list of \"projects I work on\" is a user-level concern, not a project-level one. It also means adding a project doesn't modify that project's repo.\n\n### threading.Lock on switch\nThe module globals are read by every request handler. A switch mid-request could cause a handler to read a stale `_DB_PATH` while `_PROJECT_ROOT` has already changed. The lock ensures the swap is atomic. The performance cost is negligible — switches are rare user-initiated events, and the lock is only held for the duration of the global reassignment (~milliseconds).\n\n### Full App.init() reload on switch vs. incremental update\nOn switch, the frontend re-runs the full init sequence (fetch meta, fetch all, re-render graph). This is simpler than trying to diff and incrementally update. The `/api/all` payload is already designed to be fetched on page load, so this reuses existing logic."
+    },
+    {
+      "id": "verification-plan",
+      "heading": "Technical Verification",
+      "content": "- `cortex viz /project/a` auto-registers project A in `~/.cortex/projects.json`\n- `GET /api/projects` returns the registry with project A marked as active\n- `POST /api/projects/register` with a valid cortex project adds it to the list\n- `POST /api/projects/register` with an invalid path (no `.cortex/cortex.db`) returns 400\n- `POST /api/projects/switch` swaps to project B and returns correct meta\n- After switch, `GET /api/all` returns project B's nodes and edges\n- Duplicate registration (same path) upserts rather than duplicating\n- Frontend dropdown shows all registered projects with active one highlighted\n- Frontend \"Add project\" input validates and provides error feedback on invalid paths\n- Switch while a `/api/check` request is in flight does not cause a crash (lock test)\n- Registry file is created automatically on first use if `~/.cortex/` doesn't exist"
+    }
+  ]
+}

@@ -1,0 +1,174 @@
+{
+  "title": "Interface: MCP Tools",
+  "tags": [
+    "interface",
+    "v1",
+    "mcp-server",
+    "tools"
+  ],
+  "sections": [
+    {
+      "id": "overview",
+      "heading": "Overview",
+      "content": "The cortex MCP server exposes 14 tools via the Model Context Protocol. All tools are implemented in `cortex/mcp_server.py` using the FastMCP framework. Each tool accepts `project_root` (str) as its first parameter.",
+      "level": 2
+    },
+    {
+      "id": "cortex-build",
+      "heading": "cortex_build",
+      "content": "Rebuild the cortex index by scanning source files.\n\n**Parameters:**\n| Name | Type | Required | Description |\n|---|---|---|---|\n| `project_root` | str | No (default '.') | Project directory to scan |\n\n**Returns:** Summary of nodes and edges indexed.",
+      "level": 2,
+      "links": [
+        {
+          "node_id": "cortex::cortex.mcp_server::cortex_build"
+        }
+      ]
+    },
+    {
+      "id": "cortex-list",
+      "heading": "cortex_list",
+      "content": "List indexed nodes with optional filters.\n\n**Parameters:**\n| Name | Type | Required | Description |\n|---|---|---|---|\n| `project_root` | str | No | Project directory |\n| `node_type` | str | No | Filter by type: atomic_process, composite_process, document, entity, constraint |\n| `tag` | str | No | Filter to nodes with this tag |\n| `parent_id` | str | No | Filter to direct children via `composes` edges — works for module nodes (returns functions) and doc file nodes (returns section nodes) |\n| `location` | str | No | Filter by file path substring |\n\n**Returns:** Formatted list of nodes with ID, type, and title.",
+      "level": 2,
+      "links": [
+        {
+          "node_id": "cortex::cortex.mcp_server::cortex_list"
+        }
+      ]
+    },
+    {
+      "id": "cortex-render",
+      "heading": "cortex_render",
+      "content": "Render a node at a specified detail level.\n\n**Parameters:**\n| Name | Type | Required | Description |\n|---|---|---|---|\n| `project_root` | str | No | Project directory |\n| `node_id` | str | No | Full cortex node ID. Omit to render all nodes (paginated). |\n| `level` | int | Yes | Detail level: 0=ids only, 1=summary+tags+staleness badge, 2=full docstring+staleness badge on header, 3=source excerpt |\n| `max_results` | int | No (default 60) | Cap for batch rendering |\n| `offset` | int | No (default 0) | Pagination offset |\n\n**Returns:** Formatted text at the requested detail level. At levels 1 and 2, non-CLEAN staleness badges are appended inline — e.g. `[CODE_STALE]` or `[STRUCTURAL_DRIFT]`. CLEAN and VERIFIED nodes receive no annotation (happy-path is noise-free).",
+      "level": 2,
+      "links": [
+        {
+          "node_id": "cortex::cortex.mcp_server::cortex_render"
+        }
+      ]
+    },
+    {
+      "id": "cortex-graph",
+      "heading": "cortex_graph",
+      "content": "Get a node's neighborhood in the knowledge graph.\n\n**Parameters:**\n| Name | Type | Required | Description |\n|---|---|---|---|\n| `project_root` | str | No | Project directory |\n| `node_id` | str | Yes | Seed node ID |\n| `depth` | int | No (default 1) | Number of hops from seed |\n| `direction` | str | No (default 'both') | Edge direction: 'in', 'out', or 'both' |\n\n**Returns:** List of connected nodes with edge types and directions.",
+      "level": 2,
+      "links": [
+        {
+          "node_id": "cortex::cortex.mcp_server::cortex_graph"
+        }
+      ]
+    },
+    {
+      "id": "cortex-search",
+      "heading": "cortex_search",
+      "content": "Full-text search across all indexed nodes.\n\n**Parameters:**\n| Name | Type | Required | Description |\n|---|---|---|---|\n| `project_root` | str | No | Project directory |\n| `query` | str | Yes | Search query (natural language or identifiers) |\n\n**Returns:** Up to 30 results with ID, title, type, and snippet. Uses 3-stage search: FTS5 MATCH → LIKE-AND → LIKE-OR.",
+      "level": 2,
+      "links": [
+        {
+          "node_id": "cortex::cortex.mcp_server::cortex_search"
+        }
+      ]
+    },
+    {
+      "id": "cortex-source",
+      "heading": "cortex_source",
+      "content": "Return the raw source body of a node, looked up by ID.\n\nUses `level_3_location` from the index to locate the file and line range, then returns those source lines directly.  Eliminates the need to manually parse file paths and line offsets after a `cortex_search`.\n\n**Parameters:**\n| Name | Type | Required | Description |\n|---|---|---|---|\n| `project_root` | str | Yes | Absolute path to the indexed project |\n| `node_id` | str | Yes | Full node ID, e.g. `myproject::pm.cli::some_function` |\n\n**Returns:** Source lines prefixed with a `# {node_id}  @ {location}` header.  For module-level nodes (no line range), the entire file is returned.  Returns `ERROR:` string if the node is not found or has no location.",
+      "level": 2,
+      "links": [
+        {
+          "node_id": "cortex::cortex.mcp_server::cortex_source"
+        }
+      ]
+    },
+    {
+      "id": "cortex-check",
+      "heading": "cortex_check",
+      "content": "Compute staleness for all nodes.\n\n**Parameters:**\n| Name | Type | Required | Description |\n|---|---|---|---|\n| `project_root` | str | No | Project directory |\n| `verbose` | bool | No (default `False`) | When `True`, include the full problem-node table. Default returns summary + CONTENT_STALE sections only. |\n\n**Returns:** Always starts with a one-line summary counts line. By default only CONTENT_STALE doc sections follow (actionable and few). Pass `verbose=True` to also get the full table of problem nodes.\n\nSummary format: `{N} CODE_STALE · {N} DESC_STALE · {N} CONTENT_STALE · {N} STRUCTURAL_DRIFT · {N} UNVERIFIED · {N} VERIFIED · {N} CLEAN`\n\nStatuses:\n- **CODE_STALE** — code body changed, docstring wasn't updated. Resolvable via `cortex_mark_clean`.\n- **DESC_STALE** — docstring changed without code changing (speculative drift). Resolvable via `cortex_mark_clean`.\n- **CONTENT_STALE** — doc section linked to a code node that has since changed. Must update the prose — cannot be marked clean.\n- **STRUCTURAL_DRIFT** — function no longer found in source. Rebuild to detect rename or remove the node.\n- **VERIFIED** — explicitly confirmed; expires automatically if code changes again.\n- **CLEAN** — in sync, no known drift.",
+      "level": 2,
+      "links": [
+        {
+          "node_id": "cortex::cortex.mcp_server::cortex_check"
+        }
+      ]
+    },
+    {
+      "id": "cortex-history",
+      "heading": "cortex_history",
+      "content": "View the change history for a specific node.\n\n**Parameters:**\n| Name | Type | Required | Description |\n|---|---|---|---|\n| `project_root` | str | No | Project directory |\n| `node_id` | str | Yes | The node to inspect |\n\n**Returns:** Timeline of changes (INITIAL, CODE_ONLY, DESC_ONLY, CODE_AND_DESC, verifications). Annotated with stale window duration.",
+      "level": 2,
+      "links": [
+        {
+          "node_id": "cortex::cortex.mcp_server::cortex_history"
+        }
+      ]
+    },
+    {
+      "id": "cortex-mark-clean",
+      "heading": "cortex_mark_clean",
+      "content": "Record an agent verification for a stale node.\n\n**Parameters:**\n| Name | Type | Required | Description |\n|---|---|---|---|\n| `project_root` | str | No | Project directory |\n| `node_id` | str | Yes | Node to verify |\n| `reason` | str | No | Why the docs are still accurate |\n\n**Returns:** Confirmation message. Records AGENT_VERIFIED in node_verification table.\n\nOnly applicable to `CODE_STALE` and `UNVERIFIED` nodes. `CONTENT_STALE` and `COVERAGE_STALE` cannot be marked clean — they must be resolved by updating the linked prose or test.\n\n**Linked nodes:**\n- `cortex::cortex.mcp_server::cortex_mark_clean` — cortex_mark_clean(project_root, node_id, reason, verified_by='agent') — Mark a CODE_STALE node as agent-verified clean.  @ cortex/mcp_server.py#L700-L747",
+      "level": 2,
+      "links": [
+        {
+          "node_id": "cortex::cortex.mcp_server::cortex_mark_clean"
+        }
+      ]
+    },
+    {
+      "id": "cortex-write-doc",
+      "heading": "cortex_write_doc",
+      "content": "Create or update a DocJSON file.\n\n**Parameters:**\n| Name | Type | Required | Description |\n|---|---|---|---|\n| `project_root` | str | No | Project directory |\n| `path` | str | Yes | Relative path under docs/ (e.g., 'features/my-feature/design.json') |\n| `doc_json` | str | Yes | Full DocJSON content as a JSON string |\n\n**Returns:** Confirmation with file path written.",
+      "level": 2,
+      "links": [
+        {
+          "node_id": "cortex::cortex.mcp_server::cortex_write_doc"
+        }
+      ]
+    },
+    {
+      "id": "cortex-add-link",
+      "heading": "cortex_add_link",
+      "tags": [
+        "not_working"
+      ],
+      "content": "Add a `documents` link from a doc section to a code node. Writes the link into the DocJSON file and re-indexes.\n\n**Parameters:**\n| Name | Type | Required | Description |\n|---|---|---|---|\n| `project_root` | str | No | Project directory |\n| `section_id` | str | Yes | Full section ID, e.g. `myproject::docs.architecture::database-layer` |\n| `node_id` | str | Yes | Target code node ID to link to |\n\n**Returns:** Confirmation message.\n\n> **BUG (2026-03-07):** The MCP tool fails for docs in nested subdirectories. The `section_id` parser splits on `::docs.` and treats the remaining dot-path slug as a flat filename (e.g. `features.indexer.interfaces.data-model.json`), but the actual file lives at `docs/features/indexer/interfaces/data-model.json`. The DB lookup via `get_node` returns the correct `location` with slashes, and `Path(root / location)` resolves fine — but somewhere in the flow the file is reported as not found. The CLI `cortex link` command works correctly for the same operation. Workaround: use `cortex link` CLI instead of the MCP tool.",
+      "level": 2,
+      "links": [
+        {
+          "node_id": "cortex::cortex.mcp_server::cortex_add_link"
+        }
+      ]
+    },
+    {
+      "id": "cortex-update-section",
+      "heading": "cortex_update_section",
+      "content": "Update a single section's content and/or heading in a DocJSON file. The caller provides plain markdown — no need to construct full DocJSON. Reads the file, patches the target section, writes back, and re-indexes.\n\n**Parameters:**\n| Name | Type | Required | Description |\n|---|---|---|---|\n| `project_root` | str | No | Project directory |\n| `section_id` | str | Yes | Full section ID, e.g. `myproject::docs.architecture::database-layer` |\n| `content` | str | No | New markdown content for the section |\n| `heading` | str | No | New heading for the section |\n\nAt least one of `content` or `heading` must be provided.\n\n**Returns:** Confirmation of which fields were updated.",
+      "level": 2,
+      "links": [
+        {
+          "node_id": "cortex::cortex.mcp_server::cortex_update_section"
+        }
+      ]
+    },
+    {
+      "id": "cortex-render-doc",
+      "heading": "cortex_read_doc",
+      "content": "Read a DocJSON file as Markdown. Each section heading is annotated with its full section ID in an HTML comment, enabling direct use in `cortex_update_section` or `cortex_add_link` without a separate lookup.\n\n**Parameters:**\n| Name | Type | Required | Description |\n|---|---|---|---|\n| `project_root` | str | Yes | Absolute path to the indexed project |\n| `doc_id` | str | Yes | Full doc node ID, e.g. `myproject::docs.architecture`. Pass `\"list\"` to enumerate all doc IDs |\n| `section` | str | No | Short slug to read a single section, e.g. `\"problem\"` or `\"architecture\"`. Matched against the tail of each section ID (part after last `::`). If multiple sections match, all are returned with a disambiguation header listing full section IDs. Omit to read the full document |\n\n**Returns:** Rendered Markdown. If `section` is provided and multiple sections match, output begins with `[N sections matched '{slug}' — returning all. Use full section_id in cortex_update_section to be specific.]` followed by the matched section IDs and their content.",
+      "level": 2,
+      "links": [
+        {
+          "node_id": "cortex::cortex.mcp_server::cortex_render_doc"
+        }
+      ]
+    },
+    {
+      "id": "cortex-list-undocumented",
+      "heading": "cortex_list_undocumented",
+      "content": "Find nodes that have no associated documentation.\n\n**Parameters:**\n| Name | Type | Required | Description |\n|---|---|---|---|\n| `project_root` | str | No | Project directory |\n| `node_type` | str | No | Filter by node type |\n\n**Returns:** List of nodes that have no `documents` edges pointing to them.",
+      "level": 2,
+      "links": [
+        {
+          "node_id": "cortex::cortex.mcp_server::cortex_list_undocumented"
+        }
+      ]
+    }
+  ]
+}

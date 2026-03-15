@@ -1,0 +1,43 @@
+{
+  "title": "Design Spec: Viz Dashboard",
+  "tags": [
+    "design",
+    "v1",
+    "viz"
+  ],
+  "sections": [
+    {
+      "id": "architecture",
+      "heading": "Architecture Overview",
+      "content": "The viz dashboard is a single-page application served by a FastAPI backend.\n\n```\ncortex/viz/\n  server.py          # FastAPI app, 36 API endpoints, serves static files\n  static/\n    index.html       # Single HTML shell with view containers\n    css/style.css    # Custom styles + Cytoscape overrides\n    js/\n      app.js         # Main controller: state, init, filters, orchestration, project switcher\n      graph.js       # Cytoscape.js graph renderer (344 lines)\n      list.js        # Sortable node table (84 lines)\n      detail.js      # Node detail drawer (313 lines)\n      docs.js        # DocJSON viewer/editor (2505 lines)\n      tests.js       # Test explorer with JUnit (890 lines)\n      workflow.js    # Workflow/task step explorer (682 lines)\n```\n\n**Startup:** `cortex viz .` calls `run_server(project_root)` which calls `_apply_project()` to set module globals, `_upsert_registry()` to auto-register the project in `~/.cortex/projects.json`, then launches uvicorn. The `--no-browser` flag suppresses auto-open.\n\n**Project switching:** The server supports hot-swapping the active project via `POST /api/projects/switch`. A `threading.Lock` (`_switch_lock`) guards the global reassignment. The frontend's `_loadProject()` method is re-callable — on switch it refetches `/api/meta` and `/api/all` and re-renders the full UI. Event bindings in `init()` are guarded by `_initialized` to avoid duplicate listeners.\n\n**State management:** `App.state` is a single JS object holding the current view mode, all nodes/edges, staleness map, filter settings, focus mode, and dFlow integration data. All modules (`Graph`, `List`, `Detail`, `Docs`, `Tests`, `Workflow`) read from and write to `App.state`.",
+      "level": 2
+    },
+    {
+      "id": "sequence-diagram",
+      "heading": "Sequence of Operations",
+      "content": "### Page Load\n```\nbrowser GET / → index.html\nbrowser loads app.js, graph.js, list.js, detail.js, docs.js, tests.js, workflow.js\nApp.init():\n  1. Wire event handlers (view buttons, filters, depth slider, focus mode)\n  2. GET /api/meta → project name, node/edge/doc counts\n  3. GET /api/all → full node + edge lists + staleness + verification maps\n  4. Apply sidebar filters → filteredNodes\n  5. Graph.render(filteredNodes, edges) → Cytoscape init\n```\n\n### Node Selection\n```\nUser clicks node in graph or list\n  App.selectNode(id):\n    1. GET /api/nodes/{id} → full node detail\n    2. GET /api/nodes/{id}/history → change log\n    3. GET /api/nodes/{id}/tests → test results\n    4. (If workflow/test) GET /api/workflow/{id}/steps or /api/test/{id}/steps\n    5. Detail.show(node, history, staleness, steps, tests)\n```\n\n### Rescan\n```\nUser clicks Rescan button\n  POST /api/rescan → server runs cortex build . synchronously\n  GET /api/all → refresh everything\n```",
+      "level": 2
+    },
+    {
+      "id": "data-modeling",
+      "heading": "Data Model",
+      "content": "The viz server reads directly from `cortex.db`. Key queries:\n\n| Endpoint | Tables | Purpose |\n|---|---|---|\n| `/api/all` | nodes, edges, tags, node_verification | Full graph payload |\n| `/api/check` | nodes (re-parses source files) | Staleness computation |\n| `/api/nodes/{id}` | nodes, tags | Single node detail |\n| `/api/nodes/{id}/neighborhood` | edges, nodes | Ego-network graph |\n| `/api/nodes/{id}/history` | node_history | Change log |\n| `/api/nodes/{id}/tests` | test_results, test_runs | Test coverage |\n| `/api/workflows` | nodes (dflow_meta filter) | dFlow-decorated workflows |\n| `/api/tests` | nodes (dflow_meta filter) | dFlow-decorated tests |\n| `/api/fixtures` | edges (validates), nodes | Fixture→test mapping |\n| `/api/junit` | test_results, test_runs | Latest JUnit results |\n| `/api/docs/*` | docs, doc_sections (+ filesystem) | DocJSON CRUD |\n\nStaleness is computed on-the-fly by `_compute_staleness_rich()` — it re-reads source files and compares hashes against the database.",
+      "level": 2
+    },
+    {
+      "id": "decision-log",
+      "heading": "Implementation Trade-offs",
+      "content": "### Vanilla JS, no framework\nThe frontend uses no React/Vue/Svelte. This keeps the dependency footprint to zero for the JS side. Cytoscape.js, Monaco, and Mermaid are loaded from CDN. The trade-off is more boilerplate DOM manipulation.\n\n### Full graph payload on load\n`/api/all` sends every node and edge in one response. For large projects (>5000 nodes), `App.state.isLargeProject` is set and the graph view starts in list mode. This avoids slow Cytoscape rendering.\n\n### Staleness computed on-the-fly (not cached)\n`/api/check` re-reads source files every time. This guarantees freshness but can be slow on very large codebases. The UI caches the staleness map in `App.state.stalenessMap` after each check.\n\n### DocJSON editing in-browser\nDocs.js (2505 lines) is the largest module because it implements a full inline editor: section editing, heading editing, link picker, tag management, Mermaid diagram editor, folder tree navigation. This keeps the doc-editing workflow inside the dashboard.",
+      "level": 2,
+      "tags": [
+        "decisions"
+      ]
+    },
+    {
+      "id": "verification-plan",
+      "heading": "Technical Verification",
+      "content": "- Graph renders with correct node colors per type and staleness borders\n- Filter sidebar correctly excludes/includes node types and tags\n- Focus mode shows correct ego-network at specified depth and direction\n- Detail panel displays all node fields: ID, location, summary, docstring, steps, history, tests\n- Rescan button triggers rebuild and refreshes all views\n- DocJSON editor saves changes back to disk via PUT /api/docs/{id}\n- Large project mode (>5000 nodes) defaults to list view\n- Monaco source viewer loads correct file and highlights correct line",
+      "level": 2
+    }
+  ]
+}

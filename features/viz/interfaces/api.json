@@ -1,0 +1,58 @@
+{
+  "title": "Interface: Viz API",
+  "tags": [
+    "interface",
+    "v1",
+    "viz",
+    "api"
+  ],
+  "sections": [
+    {
+      "id": "overview",
+      "heading": "API Overview",
+      "content": "The viz server exposes a REST API over FastAPI at `http://localhost:8741/api/`. All endpoints return JSON. The server is launched via `cortex viz .` and reads/writes the `.cortex/cortex.db` SQLite database.",
+      "level": 2
+    },
+    {
+      "id": "meta-endpoints",
+      "heading": "Meta & Graph Endpoints",
+      "content": "| Method | Path | Description |\n|---|---|---|\n| GET | `/api/meta` | Project metadata: name, node count, edge count, doc count, tag count |\n| GET | `/api/all` | Full graph payload: nodes[], edges[], staleness{}, verification{} |\n| GET | `/api/nodes` | List all node IDs and titles (lightweight) |\n| GET | `/api/nodes/{id}` | Full node detail including all fields |\n| GET | `/api/nodes/{id}/neighborhood` | Ego-network: nodes + edges within N hops. Query params: `depth`, `direction` |\n| GET | `/api/nodes/{id}/history` | Change log from node_history table |\n| GET | `/api/nodes/{id}/tests` | Test results for this node from test_results table |\n| POST | `/api/nodes/{id}/verify` | Record manual verification. Body: `{reason}` |\n| GET | `/api/search` | Full-text search. Query param: `q`. 3-stage: FTS5 → LIKE-AND → LIKE-OR |\n| GET | `/api/check` | Compute staleness for all nodes. Returns `{statuses, summary}` |\n| POST | `/api/rescan` | Re-run `cortex build .` and return updated counts |\n| GET | `/api/source` | Read source file. Query params: `path`, `start_line`, `end_line` |",
+      "level": 2
+    },
+    {
+      "id": "project-endpoints",
+      "heading": "Project Switching Endpoints",
+      "content": "| Method | Path | Description |\n|---|---|---|\n| GET | `/api/projects` | List registered projects with `active` flag. Returns `{projects: [{path, name, active}], active_project}` |\n| POST | `/api/projects/register` | Validate and register a new project. Body: `{project_root}`. Returns 400 if no `.cortex/cortex.db` found |\n| POST | `/api/projects/switch` | Hot-swap active project. Body: `{project_root}`. Acquires lock, re-sets globals, returns same shape as `/api/meta` |",
+      "level": 2,
+      "links": [
+        {
+          "node_id": "cortex::cortex.viz.server::get_projects"
+        },
+        {
+          "node_id": "cortex::cortex.viz.server::register_project"
+        },
+        {
+          "node_id": "cortex::cortex.viz.server::switch_project"
+        }
+      ]
+    },
+    {
+      "id": "dflow-endpoints",
+      "heading": "dFlow / Workflow Endpoints",
+      "content": "| Method | Path | Description |\n|---|---|---|\n| GET | `/api/workflows` | List dFlow `@workflow`-decorated functions with metadata |\n| GET | `/api/tasks` | List dFlow `@task`-decorated functions with metadata |\n| GET | `/api/workflow/{id}/steps` | Step breakdown for a workflow/task. Returns steps[], delegates, source |\n| GET | `/api/workflow_graph_labels` | Step-edge labels for Cytoscape graph: `{from_id\\|to_id: label}` |",
+      "level": 2
+    },
+    {
+      "id": "test-endpoints",
+      "heading": "Test Endpoints",
+      "content": "| Method | Path | Description |\n|---|---|---|\n| GET | `/api/tests` | List dFlow `@test_workflow` / `@test_suite` items |\n| GET | `/api/t1_tests` | List T1 tests (unannotated pytest functions) |\n| GET | `/api/fixtures` | List pytest fixtures with validates edges |\n| GET | `/api/junit` | Latest JUnit/JSON test results per test name |\n| GET | `/api/test-runs` | All test run records (timestamp, git SHA, summary) |\n| GET | `/api/test/{id}/detail` | Fixture data and coverage for a specific test |\n| GET | `/api/test/{id}/steps` | Step breakdown for a test function |",
+      "level": 2
+    },
+    {
+      "id": "doc-endpoints",
+      "heading": "DocJSON Endpoints",
+      "content": "| Method | Path | Description |\n|---|---|---|\n| GET | `/api/docs` | List all DocJSON files. Query params: `tag` (filter by tag) |\n| GET | `/api/docs/{id}/raw` | Raw JSON content of a doc file |\n| GET | `/api/docs/{id}/render` | Rendered markdown + metadata for a doc file |\n| POST | `/api/docs` | Create a new DocJSON file. Body: `{path, title, tags?, template?}` |\n| PUT | `/api/docs/{id}` | Save updated DocJSON content. Body: full JSON document |\n| POST | `/api/docs/{id}/move` | Move/rename a doc file. Body: `{new_path}` |\n| POST | `/api/docs/rescan` | Re-scan docs directory and update database |\n| POST | `/api/docs/import` | Import a Markdown file as DocJSON |\n| POST | `/api/docs/mkdir` | Create a subdirectory. Body: `{path}` |\n| GET | `/api/docs/subdirs` | List doc subdirectories for folder tree |",
+      "level": 2
+    }
+  ]
+}

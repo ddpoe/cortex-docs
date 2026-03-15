@@ -1,0 +1,31 @@
+{
+  "title": "Design Spec: History",
+  "tags": ["design", "v1", "indexer", "history"],
+  "sections": [
+    {
+      "id": "architecture",
+      "heading": "Architecture Overview",
+      "content": "The history subsystem provides an append-only audit trail for every node in the index. Every time `db.upsert_node()` detects a change, it inserts a `node_history` row recording what changed and when.\n\nHistory data lives in two tables:\n- `node_history` — append-only log with change_type, timestamp, optional git SHA, and metadata\n- `node_verification` — current verification state per node (see ADR-003)\n\nChange types:\n| Type | Trigger |\n|---|---|\n| `INITIAL` | Node first discovered |\n| `CODE_ONLY` | code_hash changed, desc_hash unchanged |\n| `DESC_ONLY` | desc_hash changed, code_hash unchanged |\n| `CODE_AND_DESC` | Both changed |\n| `AGENT_VERIFIED` | AI agent marked node as verified |\n| `MANUAL_VERIFIED` | Human marked node as verified |\n| `CHECKPOINT` | History collapsed at this point |\n\nRows with `preserved=1` (verifications, checkpoints) are exempt from pruning.",
+      "level": 2
+    },
+    {
+      "id": "sequence-diagram",
+      "heading": "Sequence of Operations",
+      "content": "### History recording (automatic, during cortex build)\n```\ndb.upsert_node(path, node):\n  existing = SELECT code_hash, desc_hash FROM nodes WHERE id = node.id\n  IF not existing → INSERT + history(INITIAL)\n  IF code_hash changed AND desc_hash changed → UPDATE + history(CODE_AND_DESC)\n  IF code_hash changed only → UPDATE + history(CODE_ONLY)\n  IF desc_hash changed only → UPDATE + history(DESC_ONLY)\n  IF neither changed → skip (no write, no history)\n```\n\n### Checkpoint & pruning\n```\ncortex history checkpoint .\n  For each qualifying node (by --node-types):\n    1. Find old collapsible rows (CODE_ONLY, DESC_ONLY, CODE_AND_DESC) older than --older-than days\n    2. Insert CHECKPOINT row timestamped at oldest collapsible row (preserved=1)\n    3. Keep --keep most-recent ordinary rows, delete the rest\n    AGENT_VERIFIED and MANUAL_VERIFIED rows are never deleted (preserved=1)\n```\n\n### Stale window annotation (cortex_history MCP tool)\n```\nWalk history newest-first:\n  Track whether a DESC_ONLY or CODE_AND_DESC has been seen\n  If CODE_ONLY and no desc update above it → \"stale window opened (N days)\"\n  Annotates each row to show how long the docs have been drift\n```",
+      "level": 2
+    },
+    {
+      "id": "decision-log",
+      "heading": "Implementation Trade-offs",
+      "content": "### Append-only with pruning, not rolling window\nWe keep full history by default and only prune via explicit `checkpoint`. This means history survives across multiple build cycles. The `--keep N` flag prevents unbounded growth for high-churn functions.\n\n### preserved=1 for verification rows\nVerification history is never pruned because it's the audit trail for the pre-push gate. Without it, `cortex history agent-verified` couldn't list pending reviews.\n\n### _HISTORY_ROW_LIMIT = 100\nA hard cap in db.py prevents any single node from accumulating more than 100 non-preserved rows, even without running checkpoint.",
+      "level": 2,
+      "tags": ["decisions"]
+    },
+    {
+      "id": "verification-plan",
+      "heading": "Technical Verification",
+      "content": "- Change code only → CODE_ONLY row inserted\n- Change docstring only → DESC_ONLY row inserted\n- Change both → CODE_AND_DESC row inserted\n- No change → no history row (skip)\n- Checkpoint with --no-prune → CHECKPOINT row added, no rows deleted\n- Checkpoint with --keep 5 → oldest rows beyond 5 deleted, verifications preserved\n- Stale window annotation correctly identifies the first CODE_ONLY after the last desc update",
+      "level": 2
+    }
+  ]
+}

@@ -1,0 +1,36 @@
+{
+  "title": "Template: User Guide",
+  "tags": ["template", "user-guide", "manual", "usage"],
+  "sections": [
+    {
+      "id": "overview",
+      "heading": "Overview",
+      "content": "Provide a 1-2 sentence summary of what this feature is and the primary value it provides to the user. Why should they use this tool?",
+      "level": 2
+    },
+    {
+      "id": "quick-start",
+      "heading": "Quick Start",
+      "content": "The fastest way to get up and running. Include the primary command or action:\n\n```bash\ncortex [command] --feature [name]\n```\n\nExplain the immediate output or result the user should expect.",
+      "level": 2
+    },
+    {
+      "id": "core-features",
+      "heading": "Core Functionality",
+      "content": "Detailed breakdown of the primary capabilities. Use a list or sub-headings to explain what the feature actually does.\n\n- **Feature A:** Description.\n- **Feature B:** Description.",
+      "level": 2
+    },
+    {
+      "id": "configuration",
+      "heading": "Configuration & Options",
+      "content": "List any flags, settings, or environment variables the user can change to customize the behavior.\n\n| Option | Description | Default |\n|---|---|---|\n| `--flag` | What it does | `value` |",
+      "level": 2
+    },
+    {
+      "id": "troubleshooting",
+      "heading": "Best Practices & Troubleshooting",
+      "content": "### Best Practices\nHow to get the most out of this feature.\n\n### Common Issues\n- **Problem:** Description.\n- **Solution:** How to fix it.",
+      "level": 2
+    }
+  ]
+}

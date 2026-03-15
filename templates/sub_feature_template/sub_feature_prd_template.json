@@ -1,0 +1,27 @@
+{
+  "title": "Template: Sub-Feature PRD",
+  "tags": ["template", "prd", "sub-feature"],
+  "sections": [
+    {
+      "id": "problem",
+      "heading": "Problem Statement",
+      "content": "What specific pain does this sub-feature solve? Keep it to 2-3 sentences. (e.g., 'Editing raw JSON doc files is error-prone. The doc manager lets users edit structured documentation in the browser without risking malformed JSON.')"
+    },
+    {
+      "id": "user-stories",
+      "heading": "User Stories",
+      "content": "Use the format US-XX-## for sub-feature stories (XX = sub-feature abbreviation, ## = number).\n\n**US-XX-01 — [Story title]**\nAs a [user], I want to [action] so that [value].\n\n**US-XX-02 — [Story title]**\nAs a [user], I want to [action] so that [value]."
+    },
+    {
+      "id": "current-capabilities",
+      "heading": "Current Capabilities",
+      "content": "Quick status table of what's already built:\n\n| Capability | Status |\n|---|---|\n| [Feature A] | Done |\n| [Feature B] | In progress |\n| [Feature C] | Not started |"
+    },
+    {
+      "id": "backlog",
+      "heading": "Backlog",
+      "tags": ["backlog"],
+      "content": "UX improvements and enhancements that are planned but not yet prioritized. One paragraph per item — state the problem, then the proposed solution.\n\n**[Enhancement name]** — [What's wrong today]. [What we'd do about it]."
+    }
+  ]
+}

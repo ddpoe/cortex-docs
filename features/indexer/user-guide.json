@@ -1,0 +1,36 @@
+{
+  "title": "User Guide: Indexer",
+  "tags": ["user-guide", "v1", "indexer"],
+  "sections": [
+    {
+      "id": "overview",
+      "heading": "Overview",
+      "content": "The cortex indexer scans a Python project and builds a knowledge graph stored in `.cortex/cortex.db`. It tracks every function, module, and document — along with their relationships, change history, and documentation staleness. The index powers all other cortex features: the viz dashboard, MCP tools, and the CLI query commands.",
+      "level": 2
+    },
+    {
+      "id": "quick-start",
+      "heading": "Quick Start",
+      "content": "```bash\n# Build the index (discovery-only — safe to run repeatedly)\ncortex build .\n\n# Check for stale documentation\ncortex check .\n\n# List all functions\ncortex list . --type atomic_process\n\n# Search for a symbol\ncortex render . --level 1 --id \"myproject::pm.database::get_engine\"\n```\n\nThe first `cortex build` creates `.cortex/cortex.db` and indexes everything. Subsequent builds only add newly-discovered nodes — existing staleness signals are preserved.",
+      "level": 2
+    },
+    {
+      "id": "core-features",
+      "heading": "Core Functionality",
+      "content": "- **Build** (`cortex build`): Scans .py files via AST and docs/**/*.json via the DocJSON scanner. Generates nodes, edges, tags, and FTS entries. Discovery-only by default; `--full` resets all baselines.\n- **Check** (`cortex check`): Reports per-node staleness. Fast mtime check, then per-function hash comparison. Outputs summary + problem nodes. Use `--fail-on stale` in CI.\n- **List** (`cortex list`): Enumerate nodes filtered by `--type` and/or `--tag`. Output is level-1 summaries.\n- **Render** (`cortex render`): Display nodes at detail levels 0 (IDs only), 1 (summary), 2 (full detail), or steps (dFlow step markers).\n- **Graph** (`cortex graph`): Traverse edges from a node. `--direction in` shows callers; `--direction out` shows dependencies.\n- **Link** (`cortex link`): Manually add typed edges (e.g. `validates`, `documents`) between nodes.\n- **Mark-clean** (`cortex mark-clean`): Record a human verification on a DESC_STALE node.\n- **History** (`cortex history checkpoint`): Collapse old history rows. `cortex history agent-verified` lists AI-reviewed nodes for human pre-push review.\n- **Test** (`cortex test`): Run pytest, parse results, map to cortex nodes, store in DB.\n- **Export** (`cortex export`): Dump the full index to `.cortex/index.json`.\n- **Search**: Full-text search via `cortex render --level 1` filtered output, or via the MCP/viz search endpoints.",
+      "level": 2
+    },
+    {
+      "id": "configuration",
+      "heading": "Configuration & Options",
+      "content": "| Command | Key Options | Description |\n|---|---|---|\n| `cortex build` | `--full` | Full rebuild (resets baselines) vs discovery-only (default) |\n| `cortex build` | `--id <prefix>` | Custom project ID prefix (default: directory name) |\n| `cortex check` | `--fail-on <level>` | Exit 1 on: `none`, `stale`, `unverified`, `any` |\n| `cortex check` | `--all` | Show all nodes including CLEAN (default: problems only) |\n| `cortex check` | `--format json` | Machine-readable JSON output |\n| `cortex render` | `--level <0\\|1\\|2\\|steps>` | Detail level |\n| `cortex graph` | `--direction <in\\|out\\|both>` | Edge traversal direction |\n| `cortex graph` | `--depth N` | Number of hops |\n| `cortex test` | `--node <id>` | Scope to tests validating this node |\n| `cortex test` | `--path <prefix>` | Scope to tests covering nodes under this path |\n| `cortex test` | `--no-save` | Run tests without writing results to DB |\n| `cortex test` | `--runner <cmd>` | Override test runner (e.g. `poetry run pytest`) |\n| `cortex history checkpoint` | `--keep N` | Rows to retain per node after prune |\n| `cortex history checkpoint` | `--older-than N` | Only collapse entries older than N days |",
+      "level": 2
+    },
+    {
+      "id": "troubleshooting",
+      "heading": "Best Practices & Troubleshooting",
+      "content": "### Best Practices\n- Run `cortex build .` after pulling new code or before starting a coding session\n- Use `cortex check . --fail-on stale` in CI to prevent merging stale docs\n- Use `cortex history checkpoint . --no-prune` before releases to snapshot state\n- Add `.cortex/` to `.gitignore` — the index is always rebuilt from source\n\n### Common Issues\n- **Problem:** `No index found at .cortex/cortex.db`\n- **Solution:** Run `cortex build .` first.\n\n- **Problem:** Everything shows as UNVERIFIED after first build\n- **Solution:** This is expected — UNVERIFIED means no prior baseline exists. Run `cortex build --full .` to establish baselines.\n\n- **Problem:** STRUCTURAL_DRIFT on a renamed function\n- **Solution:** The old node is orphaned. Run `cortex build .` to discover the new function, then `cortex link` to reconnect edges.\n\n- **Problem:** `cortex test` shows many unmapped tests\n- **Solution:** Use `cortex link <test_node> --edge-type validates --to <prod_node> .` to connect tests to the code they cover.",
+      "level": 2
+    }
+  ]
+}

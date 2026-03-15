@@ -1,0 +1,36 @@
+{
+  "title": "User Guide: Graph View",
+  "tags": ["user-guide", "v1", "viz", "graph-view"],
+  "sections": [
+    {
+      "id": "overview",
+      "heading": "Overview",
+      "content": "The graph view renders your codebase as an interactive node-link diagram. Nodes represent functions, modules, documents, and entities. Edges represent relationships like composition, delegation, validation, and documentation.",
+      "level": 2
+    },
+    {
+      "id": "quick-start",
+      "heading": "Quick Start",
+      "content": "1. Launch `cortex viz .`\n2. The graph view is the default (unless large project detected)\n3. Click any node to open the detail panel\n4. Use sidebar filters to show/hide node types, tags, or staleness statuses\n5. Use the depth slider + focus input to explore a specific node's neighborhood",
+      "level": 2
+    },
+    {
+      "id": "core-features",
+      "heading": "Using the Graph",
+      "content": "### Color Legend\n- **Blue** — composite_process (modules)\n- **Green** — atomic_process (functions)\n- **Orange** — document (DocJSON files/sections)\n- **Purple** — entity (external packages, data objects)\n- **Red** — constraint (validation rules)\n\n### Staleness Borders\n- **Green ring** → VERIFIED\n- **Orange ring** → DESC_STALE\n- **Blue ring** → CONTENT_STALE\n- **Red ring** → STRUCTURAL_DRIFT\n\n### Focus Mode\nType a node ID in the focus input, set depth (1-5) and direction (in/out/both), then press Enter. The graph zooms to that node's ego-network. Clear the input to return to the full graph.\n\n### Layouts\nUse the layout dropdown to switch: cose (force-directed), breadthfirst (hierarchy), circle, grid, concentric.",
+      "level": 2
+    },
+    {
+      "id": "configuration",
+      "heading": "Controls",
+      "content": "| Control | Effect |\n|---|---|\n| Depth slider | Number of hops in focus mode (1-5) |\n| Direction dropdown | Focus direction: in, out, or both |\n| Layout dropdown | Graph layout algorithm |\n| Hide orphans checkbox | Remove nodes with no visible edges |\n| Edge type checkboxes | Show/hide specific edge types |\n| Node type checkboxes | Show/hide specific node types |\n| Staleness filter | Show only nodes with a specific status |",
+      "level": 2
+    },
+    {
+      "id": "troubleshooting",
+      "heading": "Tips & Troubleshooting",
+      "content": "- **Slow rendering?** Use focus mode to limit the visible subgraph, or switch to list view\n- **Overlapping labels?** Try a different layout (breadthfirst works well for hierarchies)\n- **Can't find a node?** Use the search bar or switch to list view and use column sorting",
+      "level": 2
+    }
+  ]
+}

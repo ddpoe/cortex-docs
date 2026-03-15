@@ -1,0 +1,60 @@
+{
+  "title": "Design Spec: DocJSON Extraction",
+  "tags": ["design", "docjson", "extraction", "icebox"],
+  "sections": [
+    {
+      "id": "overview",
+      "heading": "Overview",
+      "content": "This design describes how to extract the DocJSON system from cortex into a standalone `docjson` Python package, and how cortex will consume it as an optional integration. See ADR-004 for the decision rationale and timing.\n\nThe extraction produces a self-contained package that can scan, validate, store, render, and visually browse DocJSON files — with zero cortex dependency. Cortex imports it the same way it imports dFlow: config flag, builder adapter, conditional viz mount.",
+      "level": 2
+    },
+    {
+      "id": "target-repo-layout",
+      "heading": "Target Repository Layout",
+      "content": "```\ndocjson/\n    pyproject.toml\n    docjson/\n        __init__.py              # Public API: scan, validate, render, DocModel, DocSection\n        models.py                # DocModel, DocSection, DocLink — pure dataclasses\n        schema.py                # JSON Schema definition + validate(path) → errors\n        scanner.py               # scan_json_doc(path) → DocModel, scan_dir(path) → list[DocModel]\n        db.py                    # DocJsonDB class — owns .docjson/docjson.db\n        renderer.py              # render_doc_markdown(doc, sections, links) → str\n        cli.py                   # docjson init | scan | validate | render | list\n        mcp.py                   # register_docjson_tools(mcp, db_path, project_root)\n        templates/               # ADR, feature, user-guide templates (moved from cortex)\n        viz/\n            __init__.py           # mount_docjson_viewer(app, db_path, project_root, **hooks)\n            routes.py             # All /api/docs* FastAPI routes\n            static/\n                js/docs.js        # Self-contained viewer module\n                css/docs.css      # Extracted .doc-* styles\n    docs/\n        docjson-guide.json       # Format specification (self-documenting)\n        schema.json              # Formal JSON Schema (new)\n    tests/\n```",
+      "level": 2
+    },
+    {
+      "id": "data-models",
+      "heading": "Data Models",
+      "content": "The package defines its own pure-Python models with no cortex dependency:\n\n```python\n@dataclass\nclass DocSection:\n    id: str                    # \"{doc_id}::{section_slug}\"\n    doc_id: str\n    heading: str\n    level: int = 2\n    content: str = \"\"\n    tags: list[str] = field(default_factory=list)\n    position: int = 0\n    links: list[DocLink] = field(default_factory=list)\n\n@dataclass\nclass DocLink:\n    target_id: str             # Opaque string — host system interprets it\n    edge_type: str = \"documents\"\n\n@dataclass\nclass DocModel:\n    id: str                    # Path-derived, e.g. \"docs/adrs/001-sqlite\"\n    title: str\n    file_path: str\n    tags: list[str] = field(default_factory=list)\n    sections: list[DocSection] = field(default_factory=list)\n```\n\n`DocLink.target_id` is deliberately opaque — docjson doesn't know what a \"cortex node\" is. The host resolves the ID in its own context.",
+      "level": 2
+    },
+    {
+      "id": "database",
+      "heading": "Database Design",
+      "content": "DocJSON owns `.docjson/docjson.db` with two tables (same schema currently in cortex `db.py`):\n\n| Table | Columns |\n|---|---|\n| `docs` | `id`, `title`, `tags` (JSON), `file_path`, `desc_hash`, `updated_at` |\n| `doc_sections` | `id`, `doc_id`, `heading`, `level`, `tags` (JSON), `content`, `desc_hash`, `position`, `updated_at` |\n\n`DocJsonDB` class exposes:\n- `init_db()` — create tables\n- `upsert_doc(doc: DocModel)` — insert/update with hash-based change detection\n- `upsert_section(section: DocSection)`\n- `list_docs() → list[DocModel]`\n- `get_doc(doc_id) → DocModel`\n- `get_sections(doc_id) → list[DocSection]`\n- `query_sections_by_tags(tags) → list[DocSection]`\n- `get_stale_sections(file_contents) → list[DocSection]`\n- `delete_doc(doc_id)`\n- `move_doc(old_id, new_id, new_path)`\n\nThis is a direct extraction of the ~20 functions currently grouped under `# DocJSON support` in cortex's `db.py`.",
+      "level": 2
+    },
+    {
+      "id": "scanner",
+      "heading": "Scanner",
+      "content": "Currently `json_doc_scanner.py` returns `CortexNode`/`CortexEdge` objects. After extraction:\n\n**Before (cortex-coupled):**\n```python\ndef scan_json_docs(docs_dir, project_root) -> tuple[list[CortexNode], list[CortexEdge], list, list]:\n```\n\n**After (standalone):**\n```python\ndef scan_json_doc(path: Path) -> DocModel:  # returns pure docjson types\ndef scan_dir(docs_dir: Path) -> list[DocModel]:\n```\n\nThe cortex builder adapter converts `DocModel` → `CortexNode` + `CortexEdge` at integration time. The scanner no longer imports anything from cortex.",
+      "level": 2
+    },
+    {
+      "id": "viz-decoupling",
+      "heading": "Viz Viewer Decoupling",
+      "content": "The viewer currently has three coupling points to the cortex app shell:\n\n| Coupling | Current | Decoupled |\n|---|---|---|\n| HTTP fetch | `App.apiFetch(url)` | Configurable `fetchFn` callback, or plain `fetch` with configurable `apiBase` |\n| Node navigation | `App.selectNode(id)` | Emit `CustomEvent('docjson:node-select', {nodeId})` — host listens |\n| Status messages | `App.setStatus(msg)` | Emit `CustomEvent('docjson:status', {message})` — host listens |\n| Tab switching | Cortex tab bar toggles `Docs` | Viewer exposes `init(container)` / `show()` / `hide()` |\n\nThe viewer becomes a self-contained module:\n\n```javascript\nconst DocJsonViewer = {\n    init(container, { apiBase, onNodeSelect, onStatus }) { ... },\n    show() { ... },\n    hide() { ... },\n    refresh() { ... },\n};\n```\n\nCortex wires it up:\n\n```javascript\nDocJsonViewer.init(document.getElementById('docs-view'), {\n    apiBase: '/api/docs',\n    onNodeSelect: (id) => App.selectNode(id),\n    onStatus: (msg) => App.setStatus(msg),\n});\n```\n\n**CSS extraction:** All `.doc-*` prefixed rules (~1860 lines, lines ~1492–3351 of `style.css`) move to `docjson/viz/static/css/docs.css`. Cortex loads it as an additional stylesheet when the integration is enabled.",
+      "level": 2
+    },
+    {
+      "id": "cortex-integration",
+      "heading": "Cortex Integration Layer",
+      "content": "Mirrors the dFlow pattern exactly:\n\n### Config\n```toml\n# cortex.toml\n[cortex.docjson]\nenabled = true\ndb_path = \".docjson/docjson.db\"\ndocs_dir = \"docs\"\n```\n\n```python\n# cortex/config.py\n@dataclass\nclass DocJSONConfig:\n    enabled: bool = True\n    db_path: str = \".docjson/docjson.db\"\n    docs_dir: str = \"docs\"\n```\n\n### Builder adapter\n```python\n# cortex/index/builder.py\nif config.docjson.enabled:\n    from docjson import DocJsonDB\n    djdb = DocJsonDB(config.docjson.db_path)\n    for doc in djdb.list_docs():\n        node = CortexNode(\n            id=doc.id, node_type=\"document\",\n            level_1=doc.title, source=\"docjson\",\n        )\n        upsert_node(conn, node)\n        for section in doc.sections:\n            for link in section.links:\n                upsert_edge(conn, CortexEdge(\n                    source=section.id, target=link.target_id,\n                    edge_type=\"documents\",\n                ))\n```\n\n### Viz mount\n```python\n# cortex/viz/server.py\nif _DOCJSON_ENABLED:\n    from docjson.viz import mount_docjson_viewer\n    mount_docjson_viewer(\n        app, db_path=docjson_db_path, project_root=project_root,\n        node_resolver=lambda nid: _lookup_cortex_node(nid),\n    )\n```\n\n### MCP tools\n```python\n# cortex/mcp_server.py\nif docjson_available:\n    from docjson.mcp import register_docjson_tools\n    register_docjson_tools(mcp, db_path=..., project_root=...)\n```\n\nRoutes return `{\"available\": false}` when docjson is not enabled — frontend shows empty state, same as dFlow when absent.",
+      "level": 2
+    },
+    {
+      "id": "migration-sequence",
+      "heading": "Migration Sequence",
+      "content": "| Step | What | Risk | Notes |\n|------|------|------|-------|\n| 1 | Create `docjson` repo with `models.py`, `schema.py`, `scanner.py`, `db.py`, `renderer.py` | Low | Pure extraction, no behavioral change |\n| 2 | Move templates + `docjson-guide.json` to new repo | Low | Copy, not move — cortex keeps its own docs until cutover |\n| 3 | Add `docjson` CLI (`docjson init`, `scan`, `render`, `validate`, `list`) | Low | New functionality, no cortex changes |\n| 4 | Extract DB functions from cortex `db.py` → `docjson/db.py` | Medium | Transition from embedded tables to separate DB |\n| 5 | Refactor `json_doc_scanner.py` to return `DocModel` instead of `CortexNode` | Medium | Cortex builder needs adapter layer |\n| 6 | Extract CSS into `docs.css` | Low | Mechanical split on `.doc-*` prefix |\n| 7 | Refactor `docs.js` to event-based decoupling | Medium | 3 coupling points to abstract |\n| 8 | Extract viz routes into `docjson/viz/routes.py` with `mount_docjson_viewer()` | Medium | Node resolution callback needed |\n| 9 | Extract MCP tools into `docjson/mcp.py` with `register_docjson_tools()` | Low | Tools are already fairly self-contained |\n| 10 | Add `DocJSONConfig` to cortex config, wire up integration | Low | Follows dFlow pattern exactly |\n| 11 | Remove extracted code from cortex, add `docjson` as dependency | High | The swap commit — all tests must pass |\n\nSteps 1-3 can happen in the new repo without touching cortex. Steps 4-10 are cortex-side refactors. Step 11 is the cutover.",
+      "level": 2
+    },
+    {
+      "id": "risks",
+      "heading": "Risks & Open Questions",
+      "content": "**Node link resolution:** The viz viewer currently resolves linked node IDs by querying cortex's `nodes` table directly. After extraction, the viewer needs a `node_resolver` callback. Open question: how much node metadata does the viewer need? Currently it fetches `level_1` (summary) and `level_3_location` (file path) — this could be a simple dict return.\n\n**Staleness cross-check:** `cortex check` currently reports `CONTENT_STALE` for doc sections whose linked code nodes have changed. Post-extraction, cortex would need to read from the docjson DB to perform this check. This is analogous to how it already reads dFlow data.\n\n**MCP tool naming:** Should extracted tools keep the `cortex_` prefix or become `docjson_write`, `docjson_render`, etc.? The docjson package would use its own prefix; cortex could alias them.\n\n**CDN dependencies:** The viewer loads Monaco, Mermaid, and Tiptap from CDNs. These are declared in cortex's `index.html`. The extracted viewer either ships its own HTML shell or provides a list of required CDN links for the host to include.",
+      "level": 2
+    }
+  ]
+}

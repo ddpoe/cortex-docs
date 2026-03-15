@@ -1,0 +1,26 @@
+{
+  "title": "PRD: History",
+  "tags": ["prd", "v1", "indexer", "history"],
+  "sections": [
+    {
+      "id": "problem",
+      "heading": "Problem Statement",
+      "content": "Agents working across multiple conversations need a shared record of what has been verified, when, and by whom. Without this audit trail, each new agent session starts blind — it cannot tell which nodes have already been reviewed, whether a prior verification is still valid, or how long a node has been stale. The history subsystem provides this audit trail and is the primary data source for the impact report. In V1, history is infrastructure: the data is collected automatically and queried by `cortex report`. Interactive CLI browsing is deferred to V2."
+    },
+    {
+      "id": "user-stories",
+      "heading": "User Stories",
+      "content": "**US-HI-01 — Automatic change recording**\nAs an agent, I want every code change to automatically record a history row so that I can see how long a node has been stale and what changed without any manual tracking.\n\n**US-HI-02 — Verification audit trail**\nAs an agent, I want to see which nodes were previously verified, by whom, and with what reason so that I don't re-verify work that a prior agent already reviewed.\n\n**US-HI-03 — History as impact report source**\nAs an agent, I want the history table to be the source for the impact report so that the report reflects the actual change record without any additional aggregation layer."
+    },
+    {
+      "id": "current-capabilities",
+      "heading": "Current Capabilities",
+      "content": "| Capability | Status |\n|---|---|\n| `node_history` auto-recording on every node upsert | Done |\n| `INITIAL` change type (first discovery) | Done |\n| `CODE_ONLY`, `DESC_ONLY`, `CODE_AND_DESC` change types | Done |\n| `AGENT_VERIFIED`, `MANUAL_VERIFIED` change types | Done |\n| `CHECKPOINT` change type | Done |\n| `preserved=1` for verification rows (never auto-pruned) | Done |\n| `_HISTORY_ROW_LIMIT = 100` hard cap per node | Done |\n| `cortex history checkpoint` command | Done |\n| `cortex history agent-verified` command | Done |\n| `cortex_history` MCP tool (agent access) | Done |\n| `cortex report` (impact report from history) | Not started |\n| `cortex history` CLI browser (interactive) | Not started |"
+    },
+    {
+      "id": "backlog",
+      "heading": "Backlog",
+      "content": "**`cortex report`** — The V1 deliverable that makes history useful to the verification gate. Queries `node_history` for all changes since the last checkpoint, joins with `node_verification` for current verification status (verified_by, reason, timestamp), and `test_results` for the latest test outcome per changed node. Also includes CONTENT_STALE doc sections. Outputs structured markdown suitable for attaching to a PR. Pure SQL read — deterministic, no LLM.\n\n**`cortex history` CLI browser** — An interactive command to browse per-node history with stale-window annotations (\"stale for N days since CODE_ONLY at T\"). The data is already recorded in V1; the UX is deferred. The `cortex_history` MCP tool already provides this for agent access.\n\n**Checkpoint pruning UX** — `cortex history checkpoint` exists but is not documented as part of the everyday workflow. Needs clearer guidance on when to run it (pre-release, post-merge) and what `--keep` and `--older-than` values are appropriate for typical projects.\n\n**VCS change IDs in history rows** — Store the jj/git change ID alongside history rows so reports can include the commit description as context for why a node went stale. The `git_sha` column exists in the schema but is not populated during normal builds. Requires a design decision on whether to use git SHA, jj change ID, or both."
+    }
+  ]
+}

@@ -1,0 +1,41 @@
+{
+  "title": "User Guide: Staleness",
+  "tags": [
+    "user-guide",
+    "v1",
+    "indexer",
+    "staleness"
+  ],
+  "sections": [
+    {
+      "id": "overview",
+      "heading": "Overview",
+      "content": "Staleness detection tells you which functions have code that changed without a corresponding documentation update. It's the core quality signal in cortex.",
+      "level": 2
+    },
+    {
+      "id": "quick-start",
+      "heading": "Quick Start",
+      "content": "```bash\n# Check for stale docs (problems only)\ncortex check .\n\n# Full inventory including CLEAN nodes\ncortex check . --all\n\n# CI gate: fail if any stale nodes\ncortex check . --fail-on stale\n\n# Machine-readable output\ncortex check . --format json\n```\n\nOutput: `3 CODE_STALE · 1 COVERAGE_STALE · 1 STRUCTURAL_DRIFT · 241 CLEAN`",
+      "level": 2
+    },
+    {
+      "id": "core-features",
+      "heading": "Core Functionality",
+      "content": "- **CODE_STALE:** Code body changed but the doc hasn't followed. Resolve by updating the docstring or verifying it's still accurate via `cortex mark-clean`.\n- **DESC_STALE:** Doc was updated without the code changing — prose may have drifted speculatively. Review whether the doc still reflects what the code actually does.\n- **CONTENT_STALE:** (Doc nodes only) A linked code node changed after the section was written. Must update the prose — cannot be verified away.\n- **COVERAGE_STALE:** (Test nodes only) The code this test validates changed. Review the test to confirm it still exercises the right behavior. Cannot be verified away.\n- **STRUCTURAL_DRIFT:** Function was renamed or deleted. The node no longer maps to source code. Rebuild to discover the new name or remove the node.\n- **VERIFIED:** Was stale but a human or agent confirmed the docs are correct. Expires automatically if code changes again.\n- **CLEAN:** Code and doc are in sync. Not explicitly verified but no known drift.",
+      "level": 2
+    },
+    {
+      "id": "configuration",
+      "heading": "Configuration & Options",
+      "content": "| Option | Description | Default |\n|---|---|---|\n| `--fail-on none` | Never exit 1 | Default |\n| `--fail-on stale` | Exit 1 if CODE_STALE or STRUCTURAL_DRIFT | — |\n| `--fail-on any` | Exit 1 if any non-CLEAN/non-VERIFIED nodes | — |\n| `--all` | Include CLEAN nodes in output | Problems only |\n| `--format json` | JSON output: `{statuses: {…}, summary: {…}}` | Text |",
+      "level": 2
+    },
+    {
+      "id": "troubleshooting",
+      "heading": "Best Practices & Troubleshooting",
+      "content": "### Best Practices\n- Run `cortex check .` before committing to catch stale docs early\n- Add `cortex check . --fail-on stale` to CI pre-merge checks\n- Use `cortex mark-clean` for cosmetic code changes where docs are still accurate\n\n### Common Issues\n- **Problem:** Everything shows CLEAN after first build but you expect stale nodes\n- **Solution:** Expected on baseline. Make a code change and rebuild — CODE_STALE will appear on next `cortex check`.\n\n- **Problem:** CODE_STALE after reformatting code (no logic change)\n- **Solution:** `cortex mark-clean <node_id> . --reason 'cosmetic reformat only'`\n\n- **Problem:** DESC_STALE on a node but the code looks right\n- **Solution:** The doc was updated more recently than the code. Review whether the prose still matches the implementation.",
+      "level": 2
+    }
+  ]
+}

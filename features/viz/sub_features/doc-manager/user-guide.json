@@ -1,0 +1,36 @@
+{
+  "title": "User Guide: Doc Manager",
+  "tags": ["user-guide", "v1", "viz", "doc-manager"],
+  "sections": [
+    {
+      "id": "overview",
+      "heading": "Overview",
+      "content": "The doc manager lets you browse, edit, and create DocJSON documentation files directly in the viz dashboard. No need to switch to a text editor for routine doc updates.",
+      "level": 2
+    },
+    {
+      "id": "quick-start",
+      "heading": "Quick Start",
+      "content": "1. Click the **Docs** button in the top nav\n2. Browse the folder tree on the left and click a document\n3. Read the rendered content on the right\n4. Click the edit icon on any section to make changes\n5. Click **Save** when done",
+      "level": 2
+    },
+    {
+      "id": "core-features",
+      "heading": "Features",
+      "content": "### Browsing\n- Folder tree with expand/collapse (state persists per session)\n- Tag filtering: filter docs by tag\n- Table of contents: auto-generated from section headings\n\n### Editing\n- **Section content:** Click the edit (pencil) icon to open a textarea. Edit markdown content and click away or press save.\n- **Section headings:** Click a heading to edit it inline\n- **Tags:** Add/remove tag chips at the doc or section level\n- **Links:** Click the link icon to open the link picker. Search for cortex nodes and attach them to a section.\n- **Sections:** Add new sections, remove existing ones, or reorder with drag handles\n\n### Creating\n- **New document:** Click the + icon in the toolbar. Choose a path and title.\n- **New folder:** Click the folder+ icon to create a subdirectory\n- **Import:** Import an existing Markdown file as DocJSON\n\n### Special Features\n- **Mermaid diagrams:** Sections containing mermaid code blocks get a diagram editor with Monaco syntax highlighting and live preview\n- **Raw view:** Toggle to see the raw JSON source of the document\n- **Wide mode:** Toggle for a wider content area (persists in localStorage)",
+      "level": 2
+    },
+    {
+      "id": "configuration",
+      "heading": "Toolbar Actions",
+      "content": "| Button | Action |\n|---|---|\n| Refresh | Re-scan docs directory from disk |\n| New Doc (+) | Create a new DocJSON file |\n| New Folder | Create a subdirectory |\n| Wide toggle | Expand/collapse the content area width |\n| Raw toggle | Show raw JSON source |\n| Save | Save changes to disk (appears only when dirty) |",
+      "level": 2
+    },
+    {
+      "id": "troubleshooting",
+      "heading": "Tips & Troubleshooting",
+      "content": "- **Unsaved changes warning:** The Save button appears only when you have uncommitted edits. Don't navigate away without saving.\n- **Link picker returns no results?** The search uses the same 3-stage FTS as `cortex search`. Try shorter or different terms.\n- **Mermaid diagram not rendering?** Check the code block syntax. The preview updates live as you type in the Monaco editor.",
+      "level": 2
+    }
+  ]
+}

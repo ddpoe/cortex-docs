@@ -1,0 +1,161 @@
+{
+  "title": "Cortex MCP Tools",
+  "tags": [
+    "mcp",
+    "tools",
+    "agent"
+  ],
+  "sections": [
+    {
+      "id": "overview",
+      "heading": "Overview",
+      "content": "Cortex exposes its index through a set of MCP tools. Agents connect via stdio transport and call these tools to build, query, and document a project's code index. All tools take `project_root` as their first argument and return plain text. Errors are returned as `ERROR: {message}` — tools never raise exceptions to the caller.\n\nThe tools fall into four groups: **index management**, **querying**, **staleness tracking**, and **documentation**."
+    },
+    {
+      "id": "tool-output-standards",
+      "heading": "Tool Output Standards",
+      "content": "All cortex tools follow these output conventions.  When a tool deviates, it is a bug.\n\n**1. Every list operation has a count header**\nAny tool that can return more than one result emits a header line before the data:\n```\n[20 of 87 results — fts ranked]\n[5 of 5 nodes — level 1]\n[12 of 34 undocumented nodes]\n```\nThis lets an agent see the total without counting lines.\n\n**2. No silent truncation — capped results say so**\nIf `max_results` cuts the list short, the header says exactly what to do:\n```\n[20 of 87 results]  (cap=20; pass offset=20 for next page)\n```\nTools that return the full set still show the count so the agent knows it is complete.\n\n**3. Every collection-returning tool has `max_results` and `offset`**\n`cortex_list`, `cortex_render` (no node_id), and `cortex_list_undocumented` all default to `max_results=60`. Pass a higher value explicitly for full-inventory audits. Use `offset` to page: `offset=60` returns rows 61–120.\n\n**4. Summary-first, detail on request**\nTools with potentially large output default to the smallest useful form. `cortex_check` emits one summary line + problems only by default; pass `problems_only=False` for everything. `cortex_render` at level 1 (ID + summary) is the default orientation form — use level 2 only when you need the full docstring.\n\n**5. Function-level nodes always include location**\nEvery tool that renders a node list or graph appends `@ path/file.py#L10-L45` for function-level nodes (those with a line range in their location field). This applies to: `cortex_list`, `cortex_render`, `cortex_search`, `cortex_graph` (all nodes in the tree), and `cortex_render_doc` (linked-nodes section).\n\n**6. Filters are substring-based for human-facing params**\nParameters a human or agent will type — `location`, query strings — use substring or FTS matching. Exact match is only required for programmatic IDs like `node_id`. `node_type` accepts friendly aliases `\"function\"` and `\"module\"` in addition to the internal names.",
+      "links": [
+        {
+          "node_id": "cortex::cortex.mcp_server::cortex_list"
+        },
+        {
+          "node_id": "cortex::cortex.mcp_server::cortex_render"
+        },
+        {
+          "node_id": "cortex::cortex.mcp_server::cortex_search"
+        },
+        {
+          "node_id": "cortex::cortex.mcp_server::cortex_graph"
+        },
+        {
+          "node_id": "cortex::cortex.mcp_server::cortex_list_undocumented"
+        }
+      ]
+    },
+    {
+      "id": "index-management",
+      "heading": "Index Management",
+      "content": "`cortex_build(project_root)` — Adds newly-discovered nodes/edges to the index. This is **always discovery-only**: existing nodes are never touched, so `DESC_STALE` / `STRUCTURAL_DRIFT` signals are always preserved. Edges are updated in all cases.\n\nA full rebuild (which resets `code_hash` baselines and clears staleness) is intentionally **not available through this tool**. Use the CLI `cortex build --full` for that, after you have resolved and verified all stale nodes.\n\nReturns: `nodes added`, `nodes unchanged`, `edges updated`, `edges unchanged`, and any ontology warnings.",
+      "links": [
+        {
+          "node_id": "cortex::cortex.mcp_server::cortex_build"
+        }
+      ]
+    },
+    {
+      "id": "querying-render",
+      "heading": "Querying: Render",
+      "content": "`cortex_render(project_root, level, node_id=None, max_results=60, offset=0)` — Renders one or all nodes at a chosen detail level.\n\n- Level 0: IDs only — use for a quick inventory\n- Level 1: ID + one-line summary + file location for function nodes (`@ path/file.py#L10-L45`) — the default for orientation\n- Level 2: full detail including level_2 documentation body and location\n- Level 3: step markers only (dFlow-annotated workflows)\n\nPass a `node_id` to render a single node (no cap).  Omit `node_id` to render all nodes; output starts with `[N of M nodes — level N]` and is capped at `max_results` (default 60). Use `offset` to page.",
+      "links": [
+        {
+          "node_id": "cortex::cortex.mcp_server::cortex_render"
+        }
+      ]
+    },
+    {
+      "id": "querying-list",
+      "heading": "Querying: List and Graph",
+      "content": "`cortex_list(project_root, node_type, tag, parent_id, location, max_results=60, offset=0)` — Lists nodes with optional filters.  Pass `location` (file path substring) to list all nodes in a file in one call — e.g. `location=\"snakemake_gen.py\"`.  Pass `parent_id` to enumerate children via one-hop `composes` edges — works for both module nodes (returns their functions) and doc file nodes (returns their section nodes).  `node_type` accepts `\"function\"` and `\"module\"` aliases.  Output: `[N of M results]` header, then one line per node with `@ path#L10-L45` for function nodes.  Use `offset` to page.\n\n`cortex_graph(project_root, node_id, direction, depth)` — Traverses edges from a node. `direction` is `\"out\"`, `\"in\"`, or `\"both\"`. All nodes in the output tree include `@ path#L10-L45` for function-level nodes, so agents can jump straight to `read_file` without a follow-up lookup.",
+      "links": [
+        {
+          "node_id": "cortex::cortex.mcp_server::cortex_list"
+        },
+        {
+          "node_id": "cortex::cortex.mcp_server::cortex_graph"
+        }
+      ]
+    },
+    {
+      "id": "querying-search",
+      "heading": "Querying: Search",
+      "content": "`cortex_search(project_root, query, level=None, max_results=20, node_type=None)` — Full-text search over node `level_1` and `level_2` fields. Returns one line per match with a `[N of M results — mode]` count header. Each function-node line includes `@ path#L10-L45` so agents can jump straight to `read_file` without a follow-up lookup.\n\n**Query stages** (stops at first stage that returns results):\n1. **FTS ranked** — BM25-ranked SQLite FTS5. Single word, quoted phrase (`\"scan module\"`), prefix (`scan*`), or ALL-words-required multi-word. Most queries stop here.\n2. **LIKE-AND fallback** — substring scan; all tokens must appear somewhere in the text. Fires when FTS returns nothing.\n3. **LIKE-OR fallback** — substring scan; any token matches. Broad and low-confidence; always capped at 10 regardless of `max_results`. The header says `LIKE-OR fallback (broad, low-confidence)` when this fires — usually means the query is too generic; narrow to a single specific term.\n\nThe header labels the mode so agents know whether results are ranked or broad:\n```\n[20 of 87 results — fts ranked]\n[5 of 5 results — LIKE-AND fallback]\n[10 of 10 results — LIKE-OR fallback (broad, low-confidence)]\n```\n\n**Parameters:**\n- `level=1` — search `level_1` (one-line summaries) only; use when you know the symbol name\n- `level=2` — search `level_2` (full docstrings) only; use when looking for described behaviour\n- `level=None` (default) — search both fields\n- `max_results` — cap on returned rows (default 20); LIKE-OR is always capped at 10. Note: `cortex_search` has no `offset` parameter — if you need results beyond the cap, narrow the query or raise `max_results`.\n- `node_type` — restrict to `\"atomic_process\"` (functions) or `\"composite_process\"` (modules); aliases `\"function\"` and `\"module\"` are **not** supported here, use the full type names.",
+      "links": [
+        {
+          "node_id": "cortex::cortex.mcp_server::cortex_search"
+        }
+      ]
+    },
+    {
+      "id": "querying-source",
+      "heading": "Querying: Source",
+      "content": "`cortex_source(project_root, node_id)` — Returns the raw source body of a node, looked up by ID.\n\nUses the `level_3_location` stored in the index to locate the file and line range, then returns those source lines directly.  For function-level nodes this is a precise excerpt (`#L10-L45`); for module-level nodes the entire file is returned.\n\nThis removes the need to manually parse file paths and line offsets after a search.  The full cortex-only read flow is:\n\n```\ncortex_search(project_root, \"SymbolName\")  →  node_id\ncortex_source(project_root, node_id)        →  source body\n```\n\nvs. the previous flow that required a `Read(file, offset, limit)` call.\n\n**Output format:**\n```\n# myproject::pm.cli::run_pipeline  @ pm/cli.py#L42-L87\n\n<source lines>\n```\n\nIf the node has no recorded location an `ERROR:` string is returned, consistent with all other cortex tools.",
+      "links": [
+        {
+          "node_id": "cortex::cortex.mcp_server::cortex_source"
+        }
+      ]
+    },
+    {
+      "id": "agent-usage-patterns",
+      "heading": "Recommended Agent Patterns",
+      "content": "**What cortex is good for (and what it is not)**\n\nCortex is a staleness and orientation tool, not a call-graph tool. The scanner emits `depends_on` edges from imports and `composes` edges from module → function definitions. It does **not** parse function call sites — so `cortex_graph(direction=\"in\")` will not find every place a function is *called*. Use `grep_search` for call-site and usage queries.\n\nWhat cortex is reliable for:\n- Staleness: `cortex_check` instantly confirms which nodes are CLEAN, DESC_STALE, or STRUCTURAL_DRIFT — including flagging deprecated/archived subtrees\n- Orientation: what modules exist, what is deprecated, what has drifted\n- Import dependency: what imports what (`depends_on` edges)\n- Documentation coverage: what code has no linked doc sections\n\n**Recommended pattern for a cross-cutting change**\n\n1. `cortex_check(project_root)` — summary + problems only by default; confirms nothing is already broken before you start\n2. `cortex_search(project_root, \"SymbolName\")` — locate the node; result lines include `@ path#L10-L45` for function nodes\n3. `cortex_source(project_root, node_id)` — read the source body directly; no file path parsing or offset arithmetic needed\n4. `grep_search` — find call sites and construction points not captured as index edges\n5. Make the change, then run `cortex build --full` from the CLI to checkpoint the new baseline (full rebuild, safe because you've already verified staleness)\n\nFor day-to-day additions of new files or functions, `cortex_build()` is sufficient — it only indexes new nodes and never touches existing baselines.\n\n**Context cost**\n\n`cortex_check` now defaults to `problems_only=True`, emitting a one-line summary and only non-CLEAN rows. On a clean project this is two lines total. `cortex_search` and `cortex_list` results include `@ path#L10-L45` for function nodes. `cortex_source` completes the loop: once you have a node ID, the source body is one more call — no file path parsing or offset arithmetic needed.\n\n**Listing all functions in a file (one call)**\n\nInstead of searching for a node ID and then calling `cortex_list(parent_id=...)`, use `cortex_list(location=\"file.py\")` directly. The `location` parameter is a case-sensitive substring match on `level_3_location`, so partial names work. Add `node_type=\"function\"` to restrict to functions only.",
+      "links": [
+        {
+          "node_id": "cortex::cortex.mcp_server::cortex_search"
+        },
+        {
+          "node_id": "cortex::cortex.mcp_server::cortex_source"
+        },
+        {
+          "node_id": "cortex::cortex.mcp_server::cortex_graph"
+        },
+        {
+          "node_id": "cortex::cortex.mcp_server::cortex_list"
+        },
+        {
+          "node_id": "cortex::cortex.mcp_server::cortex_check"
+        }
+      ]
+    },
+    {
+      "id": "staleness-check",
+      "heading": "Staleness: Check and History",
+      "content": "`cortex_check(project_root, problems_only=True)` — Reports staleness status for every node: `CLEAN`, `DESC_STALE`, `STRUCTURAL_DRIFT`, or `UNVERIFIED`.\n\nAlways emits a one-line summary first:\n```\n3 DESC_STALE · 1 STRUCTURAL_DRIFT · 0 UNVERIFIED · 241 CLEAN\n```\n\nWith `problems_only=True` (default) only non-CLEAN rows follow — output is small enough to read directly. When all nodes are clean the output is just the summary line and `(all nodes CLEAN)`. Pass `problems_only=False` for a full inventory audit.\n\nAlso appends a DOC SECTIONS block showing stale linked documentation sections (problems_only=True shows only stale sections; False shows all).\n\n`cortex_history(project_root, node_id, limit)` — Shows the change history for a single node newest-first. Annotates the open stale window (code changed, description not updated) with the number of days it has been open.",
+      "links": [
+        {
+          "node_id": "cortex::cortex.mcp_server::cortex_check"
+        },
+        {
+          "node_id": "cortex::cortex.mcp_server::cortex_history"
+        }
+      ]
+    },
+    {
+      "id": "staleness-mark-clean",
+      "heading": "Staleness: Mark Clean",
+      "content": "`cortex_mark_clean(project_root, node_id, reason)` — Records an `AGENT_VERIFIED` history row on a `DESC_STALE` node. Use only after reading both the current code and documentation and confirming they are consistent. The reason string is stored and surfaced in `cortex_history` for human review before push.",
+      "links": [
+        {
+          "node_id": "cortex::cortex.mcp_server::cortex_mark_clean"
+        }
+      ]
+    },
+    {
+      "id": "documentation-write",
+      "heading": "Documentation: Write and Link",
+      "content": "`cortex_write_doc(project_root, doc_json)` — Accepts a JSON string describing a documentation document, writes it to `docs/{id}.json`, and immediately indexes it. Validates that all linked `node_id` values exist; unknown IDs are returned as warnings (the write still succeeds).\n\n`cortex_add_link(project_root, section_id, node_id)` — Appends a link from an existing doc section to a code node. Loads the JSON file, adds the link, writes it back, and re-indexes. Section IDs follow the pattern `{project_id}::docs.{doc_id}::{section_id}`.\n\n`cortex_list_undocumented(project_root, node_type, max_results=60, offset=0)` — Lists all nodes with no inbound `documents` edge. Use this to find coverage gaps. Output starts with a `[N of M undocumented nodes]` header. Accepts `\"function\"` and `\"module\"` as `node_type` aliases.",
+      "links": [
+        {
+          "node_id": "cortex::cortex.mcp_server::cortex_write_doc"
+        },
+        {
+          "node_id": "cortex::cortex.mcp_server::cortex_add_link"
+        },
+        {
+          "node_id": "cortex::cortex.mcp_server::cortex_list_undocumented"
+        }
+      ]
+    },
+    {
+      "id": "documentation-render",
+      "heading": "Documentation: Render",
+      "content": "`cortex_render_doc(project_root, doc_id)` — Renders a DocJSON document as Markdown, with linked node summaries listed under each section. Each section heading is annotated with its section ID (e.g. `<!-- id: my-section-id -->`), so agents can call `cortex_update_section` immediately after reading without a separate enumeration step. Each linked function node includes a `@ path#L10-L45` suffix. Pass `doc_id=\"list\"` to see all indexed document IDs.",
+      "links": [
+        {
+          "node_id": "cortex::cortex.mcp_server::cortex_render_doc"
+        }
+      ]
+    }
+  ]
+}

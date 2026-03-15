@@ -1,0 +1,75 @@
+{
+  "title": "Cortex Viz Refactoring Plan",
+  "tags": ["viz", "refactoring", "architecture", "technical-debt"],
+  "sections": [
+    {
+      "id": "overview",
+      "heading": "Overview",
+      "content": "The Cortex Viz SPA is ~11k lines across 9 JS files, 1 CSS file, and a 1,738-line FastAPI backend. Most of the codebase is well-scoped — `graph.js` (280 lines), `detail.js` (260), `list.js` (85) are clean single-responsibility modules. Three files concentrate the technical debt:\n\n| File | Lines | Problem |\n|---|---|---|\n| `style.css` | 3,043 | ~1,100 lines of dead light-mode CSS |\n| `docs.js` | 2,262 | God object — 8 responsibilities in one literal |\n| `server.py` | 1,738 | All API routes in one module |\n\nAdditionally, `workflow.js` and `tests.js` share ~300 lines of near-identical code with no shared abstraction.",
+      "links": [
+        {"node_id": "cortex::cortex.viz.server"},
+        {"node_id": "cortex::cortex.cli"}
+      ]
+    },
+    {
+      "id": "current-architecture-desc",
+      "heading": "Current Architecture",
+      "content": "The frontend is a vanilla JS SPA with no module system. Files are loaded via `<script>` tags in a strict order and communicate through global objects (`App`, `Graph`, `Docs`, etc.). The backend is a single FastAPI module serving both the API and static files."
+    },
+    {
+      "id": "current-architecture-diagram",
+      "heading": "Current Architecture Diagram",
+      "content": "```mermaid\nflowchart TD\n    subgraph Browser\n        HTML[index.html<br/>SPA shell + CDN deps]\n        HTML --> G[graph.js 280L<br/>Cytoscape lifecycle]\n        HTML --> Li[list.js 85L<br/>Node table]\n        HTML --> D[detail.js 260L<br/>Detail drawer]\n        HTML --> W[workflow.js 682L<br/>Workflow view]\n        HTML --> T[tests.js 890L<br/>Tests view]\n        HTML --> Doc[docs.js 2262L<br/>DocJSON viewer+editor]\n        HTML --> A[app.js 841L<br/>Orchestrator]\n    end\n\n    subgraph Backend\n        S[server.py 1738L<br/>ALL routes]\n    end\n\n    subgraph Databases\n        CDB[(cortex.db)]\n        DDB[(dflow workflow.db)]\n    end\n\n    A -->|fetch| S\n    S --> CDB\n    S --> DDB\n\n    style Doc fill:#d94,stroke:#fff,color:#fff\n    style S fill:#d94,stroke:#fff,color:#fff\n    style CSS fill:#d94,stroke:#fff,color:#fff\n```"
+    },
+    {
+      "id": "tier-1-dead-css",
+      "heading": "Tier 1 — Remove Dead Light-Mode CSS",
+      "content": "**Effort:** Low (1 hour)  \n**Risk:** None  \n**Impact:** Removes ~1,100 lines\n\nThe app hard-codes `html { color-scheme: dark }`. Lines 1–1,100 of `style.css` define a complete light theme that is immediately overridden by the dark-mode block. Delete the light-mode rules and promote the dark-mode styles to top-level.\n\nAlso introduce CSS custom properties for the ~10 repeated color values (`#4a90d9`, `#58a6ff`, `#1e1e1e`, `#2d2d2d`, etc.) so future theming is a single-place change."
+    },
+    {
+      "id": "tier-2-shared-utils",
+      "heading": "Tier 2 — Extract Shared View Utilities",
+      "content": "**Effort:** Medium (2–3 hours)  \n**Risk:** Low  \n**Impact:** Removes ~300 lines of duplication\n\n`workflow.js` and `tests.js` share near-identical implementations of:\n\n- `_esc()` — HTML escape (also duplicated in `detail.js`, `list.js`, `docs.js` — 4 copies total)\n- `_openSource()` / `_jumpToLine()` — Monaco source viewer\n- `_buildFilterPanel()` — module checklist + radio filters\n- `_makeListItem()` — badge rendering\n- `_modDisplayName()` / `_isTestPath()` — path helpers\n- Monaco AMD init IIFE — identical CDN `require.config`\n\nExtract into a new `view-utils.js` loaded before both files."
+    },
+    {
+      "id": "tier-2-shared-utils-diagram",
+      "heading": "Shared Utils — Before & After",
+      "content": "```mermaid\nflowchart LR\n    subgraph Before\n        W1[workflow.js<br/>_esc, _openSource,<br/>_buildFilterPanel,<br/>Monaco init]\n        T1[tests.js<br/>_esc, _openSource,<br/>_buildFilterPanel,<br/>Monaco init]\n        D1[detail.js<br/>_esc]\n        L1[list.js<br/>_esc]\n        Doc1[docs.js<br/>_esc]\n    end\n\n    subgraph After\n        VU[view-utils.js<br/>esc, openSource,<br/>jumpToLine, buildFilterPanel,<br/>monacoInit, modDisplayName]\n        W2[workflow.js] --> VU\n        T2[tests.js] --> VU\n        D2[detail.js] --> VU\n        L2[list.js] --> VU\n        Doc2[docs.js] --> VU\n    end\n\n    style W1 fill:#d94,stroke:#fff,color:#fff\n    style T1 fill:#d94,stroke:#fff,color:#fff\n    style VU fill:#4a9,stroke:#fff,color:#fff\n```"
+    },
+    {
+      "id": "tier-3-split-docs-js",
+      "heading": "Tier 3 — Decompose docs.js",
+      "content": "**Effort:** High (4–6 hours)  \n**Risk:** Medium — must preserve edit/save flow  \n**Impact:** Highest maintainability win\n\nThe 2,262-line `Docs` object has ~50 methods spanning 8 responsibilities:\n\n1. **Folder tree** — `_buildFolderTree()`, `_renderFolderTree()`, `_renderList()`\n2. **Filter panel** — `_buildFilterPanel()`, tag/path filters\n3. **Section rendering** — `_renderDocContent()`, `_renderToc()`, scroll tracking\n4. **Rich-text editing** — `_mountTiptapEditors()`, Tiptap lifecycle\n5. **Diagram editing** — `_mountDiagramEditor()`, Monaco + Mermaid preview\n6. **Raw JSON editing** — `_toggleRawSource()`, `_mountRawMonaco()`\n7. **Section CRUD** — add/remove/move sections, tag/link management\n8. **API calls** — `_fetch()`, `_save()`, `_selectDoc()`, `_createDoc()`\n\nThe main pain point is the full-DOM-teardown pattern: every atomic change calls `_renderDocContent()` (rebuilds all section HTML) then `_wireEvents()` (re-binds ~20 handler types). This causes flicker, scroll-position loss, and is O(n) per section for every edit."
+    },
+    {
+      "id": "tier-3-docs-decomposition-diagram",
+      "heading": "docs.js Decomposition Diagram",
+      "content": "```mermaid\nflowchart TD\n    subgraph Current[\"Current: docs.js (2262 lines)\"]\n        GOD[Docs object<br/>~50 methods]\n    end\n\n    subgraph Proposed[\"Proposed: 4 focused modules\"]\n        DT[doc-tree.js ~200L<br/>Folder tree, list,<br/>filter panel]\n        DE[doc-editor.js ~600L<br/>Section rendering,<br/>Tiptap lifecycle,<br/>section CRUD,<br/>event delegation]\n        DD[doc-diagrams.js ~300L<br/>Mermaid editor,<br/>Monaco split pane,<br/>Monarch tokenizer]\n        DA[doc-api.js ~150L<br/>fetch, save, create,<br/>import, raw JSON]\n    end\n\n    DT -->|selectDoc| DA\n    DE -->|save| DA\n    DD -->|applyDiagram| DE\n    DA -->|docLoaded| DE\n    DA -->|docLoaded| DT\n\n    style GOD fill:#d94,stroke:#fff,color:#fff\n    style DT fill:#4a9,stroke:#fff,color:#fff\n    style DE fill:#4a9,stroke:#fff,color:#fff\n    style DD fill:#4a9,stroke:#fff,color:#fff\n    style DA fill:#4a9,stroke:#fff,color:#fff\n```"
+    },
+    {
+      "id": "tier-4-split-server",
+      "heading": "Tier 4 — Split server.py into Route Groups",
+      "content": "**Effort:** Medium (2–3 hours)  \n**Risk:** Low  \n**Impact:** Backend navigability\n\nThe 1,738-line `server.py` handles graph queries, staleness computation, dFlow cross-DB queries, DocJSON CRUD, test results, and source file serving. Split into:\n\n| Module | Routes | ~Lines |\n|---|---|---|\n| `routes_graph.py` | `/api/all`, `/api/check`, staleness computation | ~250 |\n| `routes_dflow.py` | `/api/workflows`, `/api/tasks`, `/api/tests`, step details | ~300 |\n| `routes_docs.py` | `/api/docs/*` — list, render, save, create, import, rescan | ~400 |\n| `routes_tests.py` | `/api/t1-tests`, `/api/fixtures`, `/api/junit`, test detail | ~200 |\n| `server.py` | App factory, middleware, static mount, shared DB helpers | ~200 |\n\nAlso extract `_compute_staleness_rich()` into a shared `cortex.staleness` module so `cli.py` and `server.py` use the same implementation instead of maintaining duplicate AST-parsing logic.",
+      "links": [
+        {"node_id": "cortex::cortex.viz.server"},
+        {"node_id": "cortex::cortex.viz.server::run_server"},
+        {"node_id": "cortex::cortex.cli::cmd_check"}
+      ]
+    },
+    {
+      "id": "tier-4-server-diagram",
+      "heading": "server.py Decomposition Diagram",
+      "content": "```mermaid\nflowchart TD\n    subgraph Current[\"Current: server.py (1738L)\"]\n        ALL[All routes + staleness + DB helpers]\n    end\n\n    subgraph Proposed\n        SF[server.py ~200L<br/>App factory, middleware]\n        RG[routes_graph.py ~250L]\n        RD[routes_dflow.py ~300L]\n        RDo[routes_docs.py ~400L]\n        RT[routes_tests.py ~200L]\n        ST[staleness.py<br/>shared with cli.py]\n    end\n\n    SF --> RG\n    SF --> RD\n    SF --> RDo\n    SF --> RT\n    RG --> ST\n    CLI[cli.py] --> ST\n\n    style ALL fill:#d94,stroke:#fff,color:#fff\n    style SF fill:#4a9,stroke:#fff,color:#fff\n    style ST fill:#58a,stroke:#fff,color:#fff\n```"
+    },
+    {
+      "id": "dependency-graph-desc",
+      "heading": "JS Dependency Problem",
+      "content": "All JS files communicate through global objects with implicit load-order dependencies. `tests.js` silently depends on `_esc()` and `_modDisplayName()` being defined at file scope in `workflow.js`, which must load first. `docs.js` depends on `ColResize` from `app.js`. If any `<script>` tag order changes, things break silently.\n\nThis isn't urgent — for an internal tool, global objects are fine. But if the file count grows beyond ~10, consider a lightweight bundler (esbuild, ~2 min setup) to enable proper `import`/`export`."
+    },
+    {
+      "id": "priority-summary",
+      "heading": "Priority Summary",
+      "content": "| Priority | Task | Effort | Lines Saved | Risk |\n|---|---|---|---|---|\n| 1 | Remove dead light-mode CSS + add custom properties | 1 hr | ~1,100 | None |\n| 2 | Extract `view-utils.js` | 2–3 hr | ~300 | Low |\n| 3 | Decompose `docs.js` into 4 modules | 4–6 hr | 0 (same total) | Medium |\n| 4 | Split `server.py` + extract staleness | 2–3 hr | 0 (same total) | Low |\n\nTiers 1–2 are quick wins that reduce total line count by ~1,400 with minimal risk. Tier 3 is the highest-value structural change but needs careful testing of the edit/save flow. Tier 4 improves backend navigability and eliminates the staleness duplication between server and CLI."
+    }
+  ]
+}

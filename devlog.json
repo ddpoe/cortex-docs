@@ -1,0 +1,26 @@
+{
+  "title": "Cortex Devlog",
+  "tags": [
+    "devlog"
+  ],
+  "sections": [
+    {
+      "id": "2026-03-08",
+      "heading": "2026-03-08",
+      "content": "- Set up Doc Backlog database in Notion (31 tasks across cortex + pm_mvp)\n- Scoped cortex v1: indexer + mcp-server only; viz and docjson-extraction are v1.1\n- Audited all feature docs — 4 PRDs exist (indexer, mcp-server, viz, doc-manager), all but doc-manager are TODO stubs\n- Identified 6 cortex v1 doc tasks: finish indexer PRD + 4 sub-feature PRDs (history, scanning, staleness, test-runner) + finish mcp-server PRD",
+      "tags": [
+        "indexer",
+        "mcp-server",
+        "task-management"
+      ]
+    },
+    {
+      "id": "new-section-1773418858082",
+      "heading": "2026-03-12",
+      "content": "<p>This is the current priorities for the project now. I have updated the PRDs with the help of AI but i agree with them:<br><br>Recommended order</p><p><strong>P0 — Scanner (do first, unblocks everything)</strong></p><ol><li><p><code>cortex init</code>&nbsp;/&nbsp;<code>cortex build</code>&nbsp;CLI split — small, high-visibility, sets the right mental model</p></li><li><p>AST call graph&nbsp;<code>validates</code>&nbsp;edges — the biggest piece of work, but it's the prerequisite for the test runner being useful at all</p></li></ol><p><strong>P1 — Staleness surface (parallel with P0 if you want)</strong><br>3. Wire CONTENT_STALE into <code>cortex check</code> output — completely independent of the call graph work, can be done anytime</p><p><strong>P2 — Report (needs P0 + P1 to be meaningful)</strong><br>4. <code>cortex report</code> — once call graph edges exist and CONTENT_STALE is surfaced, the report has all three data sources (changed nodes, test results, stale doc sections)</p><p><strong>P3 — Gate (needs P2)</strong><br>5. GitHub action — trivial once <code>cortex report</code> and <code>cortex check --fail-on</code> both work</p><p><strong>P3 (anytime) — Rename detection</strong><br>6. Hash-similarity rename — improves data quality but nothing else depends on it; can slot in anywhere</p>",
+      "level": 2,
+      "tags": [],
+      "links": []
+    }
+  ]
+}

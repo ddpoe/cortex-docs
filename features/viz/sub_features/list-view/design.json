@@ -1,0 +1,31 @@
+{
+  "title": "Design Spec: List View",
+  "tags": ["design", "v1", "viz", "list-view"],
+  "sections": [
+    {
+      "id": "architecture",
+      "heading": "Architecture Overview",
+      "content": "The list view is implemented in `list.js` (84 lines). It renders `App.state.filteredNodes` as a sortable HTML table with columns: Title, Type, Location, Staleness, Tags.\n\nThe table re-renders from scratch on every filter change or sort toggle — no virtual scrolling or pagination. For typical projects (<2000 nodes) this is fast enough. Staleness badges use the same CSS classes as the graph view for visual consistency.",
+      "level": 2
+    },
+    {
+      "id": "sequence-diagram",
+      "heading": "Key Interactions",
+      "content": "```\nList.render(nodes, stalenessMap):\n  1. Store nodes + staleness in instance vars\n  2. Update count label: \"N nodes\"\n  3. Sort by current _sortCol / _sortDir\n  4. For each node: build <tr> with type badge, staleness badge, tag chips\n  5. Bind click handler on each row \u2192 App.selectNode(node.id)\n\nColumn header click:\n  1. If same column \u2192 toggle sort direction\n  2. If different column \u2192 set ascending\n  3. Re-render rows\n```",
+      "level": 2
+    },
+    {
+      "id": "decision-log",
+      "heading": "Implementation Trade-offs",
+      "content": "### Full DOM rebuild vs virtual scrolling\nThe table rebuilds all rows on every re-render. For <2000 nodes this is imperceptible. Virtual scrolling would add complexity for marginal gain. If projects exceed 5000 nodes, pagination should be added.\n\n### Shared staleness CSS\nStaleness badges use the same `.staleness-badge.DESC_STALE` etc. classes as everywhere else, ensuring consistent color coding across views.",
+      "level": 2,
+      "tags": ["decisions"]
+    },
+    {
+      "id": "verification-plan",
+      "heading": "Technical Verification",
+      "content": "- Sort by each column in ascending and descending order\n- Click a row and verify the detail panel opens with correct node data\n- Filter by type in sidebar and verify the count label updates\n- Staleness badges match the colors from `/api/check`",
+      "level": 2
+    }
+  ]
+}

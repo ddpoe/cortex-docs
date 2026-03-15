@@ -1,0 +1,30 @@
+{
+  "title": "ADR-003: Verification Promotion Model",
+  "tags": ["adr", "architecture", "decision", "verification"],
+  "sections": [
+    {
+      "id": "status",
+      "heading": "Status",
+      "content": "**Status:** Accepted\n\n**Date:** 2025-03-01\n\n**Decider:** Dante",
+      "level": 2
+    },
+    {
+      "id": "context",
+      "heading": "Context & Problem Statement",
+      "content": "When `cortex check` detects a `DESC_STALE` node (code changed but docstring was not updated), someone — a human or an AI agent — must review the documentation and confirm it is still accurate. Without a verification mechanism, the node stays stale forever, even if the code change was purely cosmetic (e.g. reformatting, adding a log line) and the existing docs are still correct. We needed a way to record 'I reviewed this and the docs are fine' that integrates with the staleness check, the pre-push gate (`cortex history agent-verified`), and the viz dashboard.",
+      "level": 2
+    },
+    {
+      "id": "decision",
+      "heading": "The Decision",
+      "content": "We will use a `node_verification` table to record verification events. Each row stores: `node_id`, `verified_by` (either `\"human\"` or `\"agent\"`), `code_hash_at` (the code hash at the time of verification), `verified_at` timestamp, and an optional `reason`.\n\nDuring staleness checks, after the hash-based tier 2 produces a status, a **promotion step** runs:\n- If a node is `DESC_STALE` or `UNVERIFIED`, and a `node_verification` row exists where `code_hash_at` matches the node's current `code_hash`, the status is promoted to `VERIFIED`.\n- `CONTENT_STALE` (document nodes with stale linked code) is **never promoted** — it must be resolved by updating the prose.\n\nTwo verification paths exist:\n- **Human:** `cortex mark-clean <node_id>` inserts a `MANUAL_VERIFIED` history row and a verification row with `verified_by=\"human\"`.\n- **Agent:** The MCP `cortex_mark_clean` tool inserts an `AGENT_VERIFIED` history row with `verified_by=\"agent\"`. `cortex history agent-verified` lists all agent-verified nodes pending human review, serving as a pre-push gate.\n\nAgent verifications are treated as provisional — `cortex check --fail-on unverified` will not fail on VERIFIED nodes regardless of who verified them, but `cortex history agent-verified` gives humans visibility into what the AI approved.",
+      "level": 2
+    },
+    {
+      "id": "consequences",
+      "heading": "Consequences",
+      "content": "- **Positive:** Cosmetic code changes (reformatting, log lines, comment edits) no longer leave permanent stale markers — a quick verification clears them.\n- **Positive:** The `code_hash_at` binding ensures a verification is automatically invalidated if the code changes again after verification — no manual expiry needed.\n- **Positive:** The human/agent distinction enables a trust model: agents can triage at scale, humans review agent decisions before pushing.\n- **Positive:** The viz dashboard can color VERIFIED nodes differently from CLEAN and DESC_STALE, giving reviewers a quick visual of what needs attention.\n- **Negative:** Adds a `node_verification` table and an extra query during every staleness check. In practice this is a single indexed lookup per stale node, so the cost is negligible.\n- **Negative:** `CONTENT_STALE` being non-promotable means document authors must manually update prose even for trivial linked-code changes. This is intentional — documentation accuracy is the priority.\n- **Neutral:** The `AGENT_VERIFIED` vs `MANUAL_VERIFIED` distinction is recorded in history rows but both produce the same `VERIFIED` status in `cortex check`. The difference only surfaces in `cortex history agent-verified`.",
+      "level": 2
+    }
+  ]
+}

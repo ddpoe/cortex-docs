@@ -1,0 +1,36 @@
+{
+  "title": "User Guide: Scanning",
+  "tags": ["user-guide", "v1", "indexer", "scanning"],
+  "sections": [
+    {
+      "id": "overview",
+      "heading": "Overview",
+      "content": "Scanning is what happens when you run `cortex init` or `cortex build`. It reads your Python source files and DocJSON docs, extracts structured metadata, and writes it to the index database. `cortex init` does a full scan with baseline reset; `cortex build` is discovery-only (adds new nodes, preserves existing staleness signals).",
+      "level": 2
+    },
+    {
+      "id": "quick-start",
+      "heading": "Quick Start",
+      "content": "```bash\n# First-time setup (creates DB, full scan, establishes baselines)\ncortex init .\n\n# After adding new files (discovery-only — won't overwrite existing nodes)\ncortex build .\n\n# Reset to clean baseline (re-runnable — prompts for confirmation)\ncortex init .\n```",
+      "level": 2
+    },
+    {
+      "id": "core-features",
+      "heading": "What Gets Scanned",
+      "content": "- **Python files (*.py):** Every function, async function, and class method becomes an `atomic_process` node. Every module becomes a `composite_process` node. dFlow decorators are detected and stored.\n- **DocJSON files (docs/**/*.json):** Each file becomes a `document` node. Each section within becomes a child document node. Links in sections generate `documents` edges.\n- **Markdown files:** Indexed as document nodes with whole-file hashing.\n- **External imports:** Third-party packages detected in import statements become `entity` nodes with `subtype=external_package`.",
+      "level": 2
+    },
+    {
+      "id": "configuration",
+      "heading": "Configuration & Options",
+      "content": "| Option | Description | Default |\n|---|---|---|\n| `--id <prefix>` | Custom project ID used in node IDs (both commands) | Directory name |\n\n`cortex build` has no `--full` flag. To reset baselines, use `cortex init`.\n\nThe scanner respects `.gitignore` patterns and skips common non-source directories (`__pycache__`, `.git`, `node_modules`, etc.).",
+      "level": 2
+    },
+    {
+      "id": "troubleshooting",
+      "heading": "Best Practices & Troubleshooting",
+      "content": "### Best Practices\n- Run `cortex init .` on a new project for first-time setup\n- Run `cortex build .` after pulling new code to discover new nodes\n- Use `cortex init .` to reset baselines after resolving all stale nodes\n\n### Common Issues\n- **Problem:** A function shows as STRUCTURAL_DRIFT after renaming\n- **Solution:** The old node is orphaned. `cortex build .` creates the new node; manually reconnect edges with `cortex link`.\n\n- **Problem:** Warnings about files with syntax errors\n- **Solution:** The scanner skips unparseable files. Fix the syntax error and re-run `cortex build`.",
+      "level": 2
+    }
+  ]
+}

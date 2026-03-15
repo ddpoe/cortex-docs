@@ -1,0 +1,36 @@
+{
+  "title": "User Guide: History",
+  "tags": ["user-guide", "v1", "indexer", "history"],
+  "sections": [
+    {
+      "id": "overview",
+      "heading": "Overview",
+      "content": "History tracks every code and documentation change for each indexed node. It's the audit trail that powers staleness detection, verification, and the pre-push review gate.",
+      "level": 2
+    },
+    {
+      "id": "quick-start",
+      "heading": "Quick Start",
+      "content": "```bash\n# View history for a specific node (via MCP tool)\n# cortex_history(project_root, node_id)\n\n# Mark a node as verified by a human\ncortex mark-clean myproject::pm.database::get_engine . --reason 'Reformat only'\n\n# Create a checkpoint (snapshot + prune old history)\ncortex history checkpoint .\n\n# List AI-verified nodes pending human review\ncortex history agent-verified .\n```",
+      "level": 2
+    },
+    {
+      "id": "core-features",
+      "heading": "Core Functionality",
+      "content": "- **Automatic recording:** Every `cortex build` automatically appends history rows when nodes change. No manual action needed.\n- **Verification:** `cortex mark-clean` records a MANUAL_VERIFIED event. The MCP `cortex_mark_clean` tool records AGENT_VERIFIED.\n- **Checkpointing:** `cortex history checkpoint` inserts a CHECKPOINT marker and prunes old rows, keeping the most recent N per node.\n- **Pre-push gate:** `cortex history agent-verified` lists nodes where an AI agent approved the docs but a human hasn't reviewed yet.\n- **Stale window tracking:** The MCP `cortex_history` tool annotates output with how many days the \"stale window\" has been open — the gap between a code change and the last doc update.",
+      "level": 2
+    },
+    {
+      "id": "configuration",
+      "heading": "Configuration & Options",
+      "content": "| Command | Option | Description | Default |\n|---|---|---|---|\n| `mark-clean` | `--reason TEXT` | Why the docs are still accurate | Empty |\n| `history checkpoint` | `--keep N` | Rows to retain per node | 10 |\n| `history checkpoint` | `--older-than N` | Only prune entries older than N days | 90 |\n| `history checkpoint` | `--node-types TYPES` | Comma-separated types to apply to | `atomic_process,composite_process` |\n| `history checkpoint` | `--no-prune` | Insert checkpoint without deleting rows | Off |",
+      "level": 2
+    },
+    {
+      "id": "troubleshooting",
+      "heading": "Best Practices & Troubleshooting",
+      "content": "### Best Practices\n- Run `cortex history checkpoint . --no-prune` before releases to snapshot state with git SHA\n- Use `cortex history agent-verified .` as a pre-push check — review what the AI approved\n- Provide meaningful `--reason` text when marking nodes clean for future audit\n\n### Common Issues\n- **Problem:** History table growing very large\n- **Solution:** Run `cortex history checkpoint . --keep 5 --older-than 30` to prune aggressively",
+      "level": 2
+    }
+  ]
+}

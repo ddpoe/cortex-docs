@@ -1,0 +1,31 @@
+{
+  "title": "Design Spec: Detail Panel",
+  "tags": ["design", "v1", "viz", "detail-panel"],
+  "sections": [
+    {
+      "id": "architecture",
+      "heading": "Architecture Overview",
+      "content": "The detail panel is implemented in `detail.js` (313 lines). It renders as a slide-out drawer on the right side of the screen when a node is selected.\n\n**Data fetched per selection:**\n1. `GET /api/nodes/{id}` — full node object (all fields)\n2. `GET /api/nodes/{id}/history` — change log entries\n3. `GET /api/nodes/{id}/tests` — test results\n4. `GET /api/workflow/{id}/steps` (if workflow/task) or `GET /api/test/{id}/steps` (if test) — dFlow step data\n\n**Sections rendered (in order):**\n1. Type badge + staleness badge + status\n2. Node ID with copy button\n3. Location (file path + optional level_3 sub-location) with copy button\n4. Tags as chips\n5. Summary (level_0)\n6. Full description (level_1, rendered as markdown)\n7. Autodoc section (level_2, if present)\n8. Verification section — shows VERIFIED status with verify/mark-clean button for DESC_STALE nodes\n9. dFlow steps table (step_num, name, purpose, inputs, outputs, critical)\n10. Test results table (name, status, duration)\n11. History timeline (change_type, timestamp, git SHA)",
+      "level": 2
+    },
+    {
+      "id": "sequence-diagram",
+      "heading": "Key Interactions",
+      "content": "### Open Detail\n```\nApp.selectNode(id):\n  Parallel fetch: node, history, tests, steps\n  Detail.show(node, history, staleness, steps, tests):\n    Unhide panel\n    Build inner HTML via _render()\n    Wire copy buttons (clipboard API)\n```\n\n### Verify Node\n```\nUser clicks 'Mark Clean' button:\n  POST /api/nodes/{id}/verify  body: {reason: '...'}\n  Refresh staleness for that node\n  Re-render detail panel\n```\n\n### Close Detail\n```\nUser clicks X or presses Escape:\n  Detail.hide()\n  App.state.selectedNodeId = null\n  Deselect node in graph/list\n```",
+      "level": 2
+    },
+    {
+      "id": "decision-log",
+      "heading": "Implementation Trade-offs",
+      "content": "### innerHTML rebuild vs incremental DOM\nThe panel rebuilds its entire innerHTML on every selection. Given the relatively small DOM (10-15 sections), this is simpler than tracking individual section updates. The copy-button event listeners are re-bound after each render.\n\n### Markdown rendering for level_1/level_2\nDocstrings may contain markdown formatting. The panel uses a simple markdown→HTML converter for level_1 and level_2 content. Links in markdown are not clickable (they're display-only in the detail context).\n\n### Parallel data fetching\nAll four API calls (node, history, tests, steps) are fired in parallel to minimize perceived latency.",
+      "level": 2,
+      "tags": ["decisions"]
+    },
+    {
+      "id": "verification-plan",
+      "heading": "Technical Verification",
+      "content": "- All node fields render correctly (ID, location, type, tags, summaries)\n- Copy buttons copy correct text to clipboard\n- Mark Clean button sends POST verify and updates staleness badge\n- History entries display in reverse chronological order\n- Test results show pass/fail badges with durations\n- dFlow steps show step_num, name, purpose, critical annotations\n- Panel closes on X click and Escape key",
+      "level": 2
+    }
+  ]
+}

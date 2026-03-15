@@ -1,0 +1,30 @@
+{
+  "title": "ADR-001: SQLite as Single Source of Truth",
+  "tags": ["adr", "architecture", "decision", "database"],
+  "sections": [
+    {
+      "id": "status",
+      "heading": "Status",
+      "content": "**Status:** Accepted\n\n**Date:** 2025-01-15\n\n**Decider:** Dante",
+      "level": 2
+    },
+    {
+      "id": "context",
+      "heading": "Context & Problem Statement",
+      "content": "Cortex needs a persistent store for the project knowledge graph (nodes, edges, tags, history, test results, verifications). Early prototypes exported to a flat `index.json` file, but this created problems: the file was large, merging concurrent updates was impossible, and querying subsets required loading the entire graph into memory. We needed a storage layer that supports incremental upserts, relational queries (e.g. edge traversal, tag filtering), and atomic writes — without introducing a server dependency like Postgres.",
+      "level": 2
+    },
+    {
+      "id": "decision",
+      "heading": "The Decision",
+      "content": "We will use a single SQLite database at `.cortex/cortex.db` as the canonical store for all index data. There are no generated markdown files or JSON caches that need to be kept in sync — the database is the single source of truth.\n\nAll read paths (CLI, viz server, MCP tools) query the database directly. The `cortex build` command upserts nodes and edges; `cortex check` reads them back. The `cortex export` command exists only as a convenience dump to `index.json`, not as an authoritative copy.\n\nThe `.cortex/` directory is gitignored — the index is always rebuilt from source via `cortex build`.",
+      "level": 2
+    },
+    {
+      "id": "consequences",
+      "heading": "Consequences",
+      "content": "- **Positive:** Zero-config storage — no database server to install or manage. SQLite is included in the Python standard library.\n- **Positive:** Atomic upserts via `INSERT OR REPLACE` prevent partial-write corruption during `cortex build`.\n- **Positive:** Relational queries (edge traversal via CTEs, tag joins, history aggregation) are fast and natural.\n- **Positive:** Single file is easy to back up, inspect with DB browsers, or delete-and-rebuild.\n- **Negative:** Not suitable for multi-user concurrent writes (single-writer limitation). This is acceptable because cortex operates on local developer machines.\n- **Negative:** The `.cortex/` directory must be gitignored, meaning each developer rebuilds their own index. This is by design — the index is derived from source code.\n- **Neutral:** The `cortex export` command still produces `index.json` for tooling that needs a static snapshot.",
+      "level": 2
+    }
+  ]
+}

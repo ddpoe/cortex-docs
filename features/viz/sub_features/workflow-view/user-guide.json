@@ -1,0 +1,36 @@
+{
+  "title": "User Guide: Workflow View",
+  "tags": ["user-guide", "v1", "viz", "workflow-view"],
+  "sections": [
+    {
+      "id": "overview",
+      "heading": "Overview",
+      "content": "The workflow view lets you explore dFlow-annotated workflows and tasks. See each function's step breakdown, critical annotations, and source code side by side.",
+      "level": 2
+    },
+    {
+      "id": "quick-start",
+      "heading": "Quick Start",
+      "content": "1. Click **Workflow** in the top nav\n2. Toggle between Workflow and Task mode\n3. Click an item to see its steps and source code\n4. Use filters on the left to narrow down",
+      "level": 2
+    },
+    {
+      "id": "core-features",
+      "heading": "Features",
+      "content": "### Two Modes\n- **Workflow mode:** Shows `@workflow`-decorated functions (orchestration entry points)\n- **Task mode:** Shows `@task`-decorated functions (reusable units of work)\n\n### Step Explorer\nSelecting an item loads its step breakdown:\n- Step number and name\n- Purpose description\n- Inputs and outputs\n- Critical annotations (flagging long-running or dangerous operations)\n- Delegation: AutoStep entries link to their target @task function\n\n### Source Viewer\nThe right panel shows the function's source code in a Monaco editor. Step lines are highlighted with colored margins so you can see exactly where each step starts.\n\n### Filters\n- Has steps (only show items with Step/AutoStep markers)\n- Has critical (only show items with critical= annotations)\n- Linked to graph (only show items with a cortex node ID)\n- Group by module\n- Module checklist (restrict to specific modules)",
+      "level": 2
+    },
+    {
+      "id": "configuration",
+      "heading": "Prerequisites",
+      "content": "The workflow view requires dFlow annotations:\n1. Decorate functions with `@workflow` or `@task`\n2. Add `Step()` / `AutoStep()` markers inside the function body\n3. Run `cortex build .` to index the annotations\n\nWithout dFlow decorators, the workflow view will show \"No workflows found.\"",
+      "level": 2
+    },
+    {
+      "id": "troubleshooting",
+      "heading": "Tips",
+      "content": "- **No workflows/tasks found?** Add dFlow decorators and re-run `cortex build .`\n- **Steps not showing?** Make sure `Step()` or `AutoStep()` calls are inside the decorated function\n- **Source viewer blank?** The file path from the index couldn't be resolved. Check the node's location.",
+      "level": 2
+    }
+  ]
+}

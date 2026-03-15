@@ -1,0 +1,31 @@
+{
+  "title": "PRD: Doc Manager",
+  "tags": ["prd", "v1", "viz", "doc-manager"],
+  "sections": [
+    {
+      "id": "problem",
+      "heading": "Problem Statement",
+      "content": "Structured documentation (DocJSON) is only useful if people can browse, edit, and maintain it without friction. Editing raw JSON files in a text editor is error-prone — malformed JSON, orphaned links, inconsistent tags. The doc manager provides an in-browser viewer and editor so developers and agents can maintain documentation alongside code without context-switching.",
+      "level": 2
+    },
+    {
+      "id": "user-stories",
+      "heading": "User Stories",
+      "content": "**US-DM-01 — Browse docs by folder**\nAs a developer, I want to browse DocJSON files in a folder tree so I can find documentation by its location in the project.\n\n**US-DM-02 — Filter docs by tag**\nAs a developer, I want to filter the doc list by tags so I can find all ADRs, all design specs, or all icebox items quickly.\n\n**US-DM-03 — Edit sections inline**\nAs a developer, I want to edit a section's content directly in the browser so I don't have to open the raw JSON file and risk malforming it.\n\n**US-DM-04 — Manage links to code nodes**\nAs a developer, I want to attach and detach links between doc sections and cortex nodes so the documentation stays connected to the code it describes.\n\n**US-DM-05 — Create docs from the browser**\nAs a developer, I want to create a new DocJSON file (optionally from a template) without manually scaffolding the JSON structure.\n\n**US-DM-06 — Edit Mermaid diagrams**\nAs a developer, I want a live-preview diagram editor so I can author and iterate on architecture diagrams without a separate tool.",
+      "level": 2
+    },
+    {
+      "id": "current-capabilities",
+      "heading": "Current Capabilities",
+      "content": "| Capability | Status |\n|---|---|\n| Folder tree with expand/collapse persistence | Done |\n| Tag filtering (multi-select, persisted in session) | Done |\n| Rendered markdown view with Mermaid diagrams | Done |\n| Click-to-edit sections (textarea) | Done |\n| Inline heading editing | Done |\n| Section add / remove / reorder | Done |\n| Tag management (doc + section level) | Done |\n| Link picker with node search | Done |\n| Mermaid diagram editor (Monaco + live preview) | Done |\n| Raw JSON source toggle | Done |\n| Wide mode toggle | Done |\n| Create new doc / folder | Done |\n| Move / rename docs | Done |\n| Markdown import | Done |\n| Re-scan docs from disk | Done |",
+      "level": 2
+    },
+    {
+      "id": "backlog",
+      "heading": "Backlog",
+      "content": "**Hide empty folders when tag filter is active** — When tag filters are active, folders that contain no matching documents should be hidden from the sidebar tree. Currently empty folders remain visible, adding noise when browsing a filtered subset (e.g. all `icebox` docs, all `adr` docs).\n\n**Rich-text editing (Tiptap)** — Replace the plain textarea with the Tiptap rich-text editor for a more polished editing experience. The Tiptap dependencies are already loaded in index.html but not yet wired into content editing.\n\n**Template picker on new doc** — When creating a new document, offer a template selector populated from `docs/templates/`. Currently templates exist on disk but the UI doesn't surface them.\n\n**Section drag-and-drop reorder** — Replace the current up/down arrow reorder buttons with drag-and-drop. Lower priority since the arrows work fine for small documents.\n\n**Diff view on save** — Before saving, show a diff of what changed since the last save. Helps catch accidental edits.\n\n**Tag color management** — Tags are currently all rendered as gray chips. Add a tag management panel where users can assign colors to tags (e.g. red for `todo`, blue for `adr`, orange for `icebox`). Colors should persist (localStorage or a `.cortex/tag-colors.json` file) and apply everywhere tags appear — sidebar filter checklist, doc-level chips, and section-level chips.",
+      "level": 2,
+      "tags": ["backlog"]
+    }
+  ]
+}

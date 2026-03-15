@@ -1,0 +1,36 @@
+{
+  "title": "ADR-004: Extract DocJSON into a Standalone Package",
+  "tags": ["adr", "architecture", "decision", "docjson", "icebox"],
+  "sections": [
+    {
+      "id": "status",
+      "heading": "Status",
+      "content": "**Status:** Accepted (implementation deferred — icebox)\n\n**Date:** 2026-03-07\n\n**Decider:** Dante",
+      "level": 2
+    },
+    {
+      "id": "context",
+      "heading": "Context & Problem Statement",
+      "content": "DocJSON has grown from a simple documentation format into a system in its own right. It now accounts for:\n\n- **~20 dedicated DB functions** across two tables (`docs`, `doc_sections`)\n- **A full scanner** (`json_doc_scanner.py`)\n- **4 MCP tools** (`cortex_write_doc`, `cortex_add_link`, `cortex_render_doc`, `cortex_list_undocumented`) plus doc-specific logic in `cortex_check`\n- **12+ viz server routes** under `/api/docs*`\n- **2505 lines of JS** (`docs.js`) — a complete document viewer/editor with rich-text editing, diagram editing, folder tree, tag management, and link management\n- **~1860 lines of CSS** — over half of `style.css`\n- **Templates, a format guide, and a rendering pipeline**\n\nThis is comparable in scope to cortex's own indexer. Keeping it embedded means:\n1. Other projects cannot use structured documentation without adopting all of cortex\n2. The cortex codebase carries significant complexity that is conceptually independent of code indexing\n3. The viz viewer cannot be reused outside cortex\n\nThe existing dFlow integration demonstrates that cortex can cleanly consume external systems through a config-gated integration pattern (separate DB, conditional builder step, auto-detected viz routes).",
+      "level": 2
+    },
+    {
+      "id": "decision",
+      "heading": "The Decision",
+      "content": "We will extract DocJSON into a standalone Python package (`docjson`) with its own repository, database, CLI, and optional viz viewer. Cortex will consume it as a dependency through an integration layer that mirrors the existing dFlow pattern.\n\n**Timing:** Extraction happens after the current feature set stabilizes (target: v2.0). Until then, we continue developing DocJSON inside the cortex monorepo but follow separation-friendly conventions to keep the extraction mechanical when the time comes.\n\n**Separation-friendly conventions (effective now):**\n- All doc DB functions remain grouped under the `# DocJSON support` section in `db.py`\n- `json_doc_scanner.py` stays as its own module with minimal cortex imports\n- `docs.js` communicates with cortex only through `App.apiFetch()`, `App.selectNode()`, and `App.setStatus()` — no new cross-cutting calls\n- All doc CSS stays under the `.doc-*` prefix\n- New docjson features should ask: \"does this need cortex, or just docjson?\"\n\n**Integration model (at extraction time):**\n- `docjson` owns its own SQLite DB (`.docjson/docjson.db`), mirroring dFlow's `.dflow/workflow.db`\n- Cortex config adds `[cortex.docjson]` with `enabled` flag and `db_path`\n- Cortex builder reads `docjson` DB at build time, creates `CortexNode`/`CortexEdge` entries\n- Viz server conditionally mounts the docjson viewer via `mount_docjson_viewer(app, ...)`\n- MCP tools are registered conditionally via `register_docjson_tools(mcp, ...)`",
+      "level": 2
+    },
+    {
+      "id": "alternatives",
+      "heading": "Alternatives Considered",
+      "content": "### Keep embedded forever\nSimpler in the short term. But docjson is already >50% of the viz CSS and growing. Other projects wanting structured docs would need to vendor cortex or rewrite the format.\n\n### Extract now, develop in two repos\nCleaner architecture immediately. But the indexer and docjson features are both still evolving — developing across two repos doubles the friction (cross-repo PRs, version pinning, integration testing) while the API surface is unstable.\n\n### Shared DB (docjson tables in cortex.db)\nAvoids a second SQLite file. But prevents docjson from working standalone and creates a hard dependency on cortex's DB schema and migration story.",
+      "level": 2
+    },
+    {
+      "id": "consequences",
+      "heading": "Consequences",
+      "content": "- **Positive:** DocJSON becomes usable by any Python project — scan docs, validate format, render markdown, browse in viz — without adopting cortex.\n- **Positive:** Cortex's codebase shrinks significantly. The remaining doc integration is a thin adapter (~100 lines).\n- **Positive:** The viz document viewer becomes a reusable component mountable in any FastAPI app.\n- **Positive:** Follows the proven dFlow integration pattern — no new architectural concepts.\n- **Negative:** Extraction is a non-trivial migration (~1-2 days of mechanical work plus testing).\n- **Negative:** The link-to-code-node feature requires a callback/resolver interface since docjson won't know about cortex node IDs natively.\n- **Neutral:** Until extraction happens, the codebase carries the weight of an embedded system. The separation-friendly conventions mitigate this by keeping the boundary visible.",
+      "level": 2
+    }
+  ]
+}

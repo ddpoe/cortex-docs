@@ -1,0 +1,36 @@
+{
+  "title": "User Guide: Test Runner",
+  "tags": ["user-guide", "v1", "indexer", "test-runner"],
+  "sections": [
+    {
+      "id": "overview",
+      "heading": "Overview",
+      "content": "The cortex test runner executes pytest and records results in the index database, mapping each test to the production code it validates. This enables scoped test runs (\"run only the tests that cover this function\") and test status in the viz dashboard.",
+      "level": 2
+    },
+    {
+      "id": "quick-start",
+      "heading": "Quick Start",
+      "content": "```bash\n# Run all tests and record results\ncortex test .\n\n# Run only tests that validate a specific function\ncortex test . --node myproject::pm.database::get_engine\n\n# Run tests covering all code under a path\ncortex test . --path pm/pipeline/\n\n# Pass extra pytest flags\ncortex test . -v --tb=short\n\n# Dry run without saving to DB\ncortex test . --no-save\n```",
+      "level": 2
+    },
+    {
+      "id": "core-features",
+      "heading": "Core Functionality",
+      "content": "- **Scoped runs:** `--node` finds all tests with `validates` edges to that node. `--path` finds all production nodes under that path and their validators.\n- **Auto-detect runner:** Tries pixi, poetry, then plain pytest automatically. Override with `--runner`.\n- **Result mapping:** Each pytest test ID is resolved to a cortex node ID via `validates` edges. Unmapped tests are flagged.\n- **Persistent results:** `test_runs` table stores run metadata; `test_results` stores per-test status. The viz dashboard reads these for the test panel.\n- **Git SHA tracking:** Each run records the current git commit for traceability.",
+      "level": 2
+    },
+    {
+      "id": "configuration",
+      "heading": "Configuration & Options",
+      "content": "| Option | Description | Default |\n|---|---|---|\n| `--node <id>` | Scope to tests validating this node | All tests |\n| `--path <prefix>` | Scope to tests covering nodes under this path | All tests |\n| `--no-save` | Don't write results to cortex.db | Save |\n| `--runner <cmd>` | Override runner (e.g. `pixi run pytest`) | Auto-detect |\n| `PYTEST_ARGS...` | Extra args passed through to pytest | None |\n\nFor best results, install `pytest-json-report` in your project for richer test data.",
+      "level": 2
+    },
+    {
+      "id": "troubleshooting",
+      "heading": "Best Practices & Troubleshooting",
+      "content": "### Best Practices\n- Connect tests to production code with `cortex link <test_node> --edge-type validates --to <prod_node> .`\n- Use `@test_workflow(covers=[...])` dFlow decorators — cortex build auto-creates validates edges from these\n- Run `cortex test .` in CI to maintain a history of test results per commit\n\n### Common Issues\n- **Problem:** Many unmapped tests in output\n- **Solution:** Add validates edges: `cortex link <test_id> --edge-type validates --to <prod_id> .`\n\n- **Problem:** `cortex test . --node X` runs no tests\n- **Solution:** No validates edges point to node X. Check with `cortex graph X . --direction in`",
+      "level": 2
+    }
+  ]
+}

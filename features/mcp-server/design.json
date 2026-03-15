@@ -1,0 +1,43 @@
+{
+  "title": "Design Spec: MCP Server",
+  "tags": [
+    "design",
+    "v1",
+    "mcp-server"
+  ],
+  "sections": [
+    {
+      "id": "architecture",
+      "heading": "Architecture Overview",
+      "content": "The MCP server is implemented in `cortex/mcp_server.py` using the FastMCP framework. It exposes 14 tools via the Model Context Protocol, allowing AI agents to query and modify the cortex knowledge graph.\n\n**Transport:** stdio (default for VS Code / editor integration). The server is started by registering `cortex` as an MCP server in the editor config.\n\n**Tool pattern:** Each tool is a Python function decorated with `@mcp.tool()`. Functions accept `project_root` as first argument, resolve the `.cortex/cortex.db` path, and call into the same `db` and `builder` modules used by the CLI.\n\n**Shared infrastructure:**\n- `_resolve_db(project_root)` → opens SQLite DB\n- `_render_node(node_row, level, ...)` → formats node detail at specified verbosity\n- `_compute_staleness_for_mcp(...)` → staleness computation (same algorithm as viz server)\n- `fts_search(db_path, query)` → 3-stage full-text search\n\n**Error handling:** All tools catch exceptions and return formatted error strings rather than raising, so the MCP client always gets a text response.",
+      "level": 2
+    },
+    {
+      "id": "sequence-diagram",
+      "heading": "Sequence of Operations",
+      "content": "### Typical Agent Workflow\n```\n1. Agent calls cortex_build(project_root) → index updated\n2. Agent calls cortex_check(project_root) → list of stale nodes\n3. For each stale node:\n   a. cortex_render(project_root, node_id, level=2) → full docstring + metadata\n   b. cortex_graph(project_root, node_id, depth=1) → immediate neighbors\n   c. cortex_history(project_root, node_id) → what changed and when\n   d. Agent updates the docstring in source code\n   e. cortex_mark_clean(project_root, node_id, reason=\"Updated docstring\")\n4. Agent calls cortex_write_doc(project_root, path, doc_json) → create/update DocJSON\n```\n\n### Search → Render Flow\n```\ncortex_search(project_root, query):\n  1. fts_search(db_path, query) → 3-stage FTS\n     Stage 1: FTS5 MATCH (fast, ranked by BM25)\n     Stage 2: LIKE AND (all terms)\n     Stage 3: LIKE OR (any term, fallback)\n  2. Return [{id, title, node_type, snippet}] up to 30 results\n\ncortex_render(project_root, node_id, level=1):\n  1. SELECT * FROM nodes WHERE id = node_id\n  2. _render_node(row, level=1) → formatted text with tags, type, summary\n```",
+      "level": 2
+    },
+    {
+      "id": "data-modeling",
+      "heading": "Data Model",
+      "content": "The MCP server reads from and writes to the same `cortex.db` as the CLI and viz server. Key tables accessed:\n\n| Tool | Tables | Operations |\n|---|---|---|\n| cortex_build | (runs builder.py) | Full scan + upsert |\n| cortex_list | nodes, tags, edges | SELECT with filters |\n| cortex_render | nodes, tags | SELECT by ID |\n| cortex_graph | nodes, edges | Recursive neighborhood query |\n| cortex_search | nodes, node_fts | FTS5 MATCH + LIKE fallback |\n| cortex_check | nodes (+ filesystem) | Hash comparison |\n| cortex_history | node_history | SELECT ordered by timestamp |\n| cortex_mark_clean | node_verification | INSERT/REPLACE |\n| cortex_source | filesystem | Read source lines by node location |\n| cortex_write_doc | filesystem | Write JSON to docs/ |\n| cortex_add_link | edges | INSERT edge |\n| cortex_update_section | filesystem + docs | Patch single section in DocJSON |\n| cortex_read_doc | filesystem + docs | Read JSON + render markdown, optional section slug filter |\n| cortex_list_undocumented | docs, doc_sections, edges | Find nodes without documents edges |",
+      "level": 2
+    },
+    {
+      "id": "decision-log",
+      "heading": "Implementation Trade-offs",
+      "content": "### project_root on every call\nEvery tool takes `project_root` as a parameter rather than caching it at server startup. This allows the same MCP server instance to work across multiple projects in a workspace. The trade-off is slightly more verbose tool calls.\n\n### Text responses, not JSON\nMost tools return formatted text strings rather than structured JSON. This is because current MCP clients (Copilot, Cursor) render tool responses as markdown text. Structured data might not display well.\n\n### 3-stage search fallback\ncortex_search uses FTS5 first, then LIKE-AND, then LIKE-OR. This graceful degradation ensures results even for queries that don't match FTS5 tokenization (e.g., camelCase identifiers).\n\n### Agent vs manual verification\ncortex_mark_clean records `AGENT_VERIFIED` (not `MANUAL_VERIFIED`). The CLI `cortex mark-clean` records `MANUAL_VERIFIED`. The `cortex history agent-verified` command lists nodes where agent verification is pending human review.",
+      "level": 2,
+      "tags": [
+        "decisions"
+      ]
+    },
+    {
+      "id": "verification-plan",
+      "heading": "Technical Verification",
+      "content": "- cortex_build creates/updates the database\n- cortex_list filters by type, tag, parent_id, and location\n- cortex_render returns appropriate detail at each level (0-3)\n- cortex_graph returns correct neighborhood at depth 1, 2, 3\n- cortex_search finds nodes by partial name, full name, and docstring content\n- cortex_check returns correct staleness statuses\n- cortex_mark_clean creates AGENT_VERIFIED record\n- cortex_source returns correct source lines for a node ID\n- cortex_write_doc creates valid DocJSON file on disk\n- cortex_add_link creates edge and validates node IDs\n- cortex_read_doc renders full doc as Markdown with section ID annotations\n- cortex_read_doc with section slug returns matching section(s); multiple matches return disambiguation header\n- All tools return a text response (never raise unhandled exceptions)",
+      "level": 2
+    }
+  ]
+}
