@@ -1,6 +1,11 @@
 {
   "title": "Interface: Ontology",
-  "tags": ["interface", "v1", "indexer", "ontology"],
+  "tags": [
+    "interface",
+    "v1",
+    "indexer",
+    "ontology"
+  ],
   "sections": [
     {
       "id": "overview",
@@ -11,13 +16,13 @@
     {
       "id": "node-types",
       "heading": "Node Types",
-      "content": "### atomic_process\nA leaf-level transformation unit with no sub-processes. The smallest meaningful unit of work.\n- Examples: Python function, dFlow `@task`, single pipeline step\n- Can contain: nothing\n- dFlow mapping: `@task` decorated function\n\n### composite_process\nOrchestrates or contains other processes. Scale-invariant: a module, package, pipeline, and `@workflow` are all composite_process.\n- Examples: Python module, package, dFlow `@workflow`, Snakemake pipeline\n- Can contain: `atomic_process`, `composite_process`\n- dFlow mapping: `@workflow` decorated function, any module/package\n\n### entity\nSomething consumed or produced by a process.\n- Subtypes: `data_artifact`, `config_artifact`, `model_artifact`, `external_package`\n- Examples: AnnData object, config.yaml, trained model, third-party pip package\n- dFlow mapping: `inputs=`/`outputs=` values on decorators (best-effort)\n\n### constraint\nRestricts or validates behavior of processes or entities.\n- Subtypes: `test`, `decision`, `schema`, `contract`\n- Examples: `@test_workflow` function, `@test_suite` class, design decision\n- dFlow mapping: `@test_workflow` and `@test_suite` decorated items\n\n### document\nHuman-readable description of any other node.\n- Examples: Markdown file, README, DocJSON file, notebook\n- Can contain: `document` (sections within documents)",
+      "content": "Three structural node types (ADR-009: reduced from five. `document` and `constraint` retired.)\n\n### atomic_process\nA leaf-level transformation unit with no sub-processes. The smallest meaningful unit of work.\n- Subtypes: `function`, `docjson`, `test`\n- Examples: Python function, dFlow `@task`, DocJSON section, test function\n- `function` — Python function or method\n- `docjson` — DocJSON doc section (code_hash = prose body, desc_hash = heading)\n- `test` — Test function (identified by `test_` prefix or test file path)\n\n### composite_process\nOrchestrates or contains other processes. Scale-invariant: a module, package, pipeline, and `@workflow` are all composite_process.\n- Subtypes: `module`, `docjson`, `external_package`\n- Examples: Python module, package, dFlow `@workflow`, DocJSON doc file\n- `module` — Python module or package\n- `docjson` — DocJSON doc file (contains sections via `composes` edges)\n- `external_package` — Third-party dependency\n\n### entity\nSomething consumed or produced by a process.\n- Subtypes: `data_artifact`, `config_artifact`, `model_artifact`\n- Examples: AnnData object, config.yaml, trained model\n- Always CLEAN in staleness checks (data artifacts, not logic)",
       "level": 2
     },
     {
       "id": "edge-types",
       "heading": "Edge Types",
-      "content": "| Edge Type | From Types | To Types | Description |\n|---|---|---|---|\n| `consumes` | atomic_process, composite_process | entity | Process takes entity as input |\n| `produces` | atomic_process, composite_process | entity | Process creates entity as output |\n| `composes` | composite_process, atomic_process | atomic_process, composite_process | Structural containment (module→function) |\n| `delegates_to` | composite_process | atomic_process, composite_process | Runtime invocation (cross-module call) |\n| `depends_on` | atomic_process, composite_process | atomic_process, composite_process, entity | Execution/import dependency |\n| `constrains` | constraint | atomic_process, composite_process, entity | Schema/contract restriction |\n| `validates` | atomic_process, constraint | atomic_process, composite_process | Test coverage link |\n| `documents` | document | any | Documentation describes a node |\n| `supersedes` | atomic_process, composite_process, constraint | same types | Replacement/obsolescence |",
+      "content": "| Edge Type | From Types | To Types | Description |\n|---|---|---|---|\n| `consumes` | atomic_process, composite_process | entity | Process takes entity as input |\n| `produces` | atomic_process, composite_process | entity | Process creates entity as output |\n| `composes` | composite_process | atomic_process, composite_process | Structural containment (module→function, doc file→section) |\n| `delegates_to` | composite_process | atomic_process, composite_process | Runtime invocation (cross-module call) |\n| `depends_on` | atomic_process, composite_process | atomic_process, composite_process, entity | Execution/import dependency |\n| `constrains` | atomic_process | atomic_process, composite_process, entity | Schema/contract restriction (ADR-009: was `constraint →`) |\n| `validates` | atomic_process | atomic_process, composite_process | Test coverage link (ADR-009: `constraint` dropped from from-types) |\n| `documents` | atomic_process, composite_process | any | Documentation describes a node (ADR-009: was `document →`) |\n| `supersedes` | atomic_process, composite_process | atomic_process, composite_process | Replacement/obsolescence (ADR-009: `constraint` dropped) |",
       "level": 2
     },
     {

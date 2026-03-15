@@ -1,0 +1,17 @@
+name: Notify parent repo
+
+on:
+  push:
+    branches: [main]
+
+jobs:
+  notify:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Trigger submodule update in cortex
+        run: |
+          curl -X POST \
+            -H "Accept: application/vnd.github+json" \
+            -H "Authorization: Bearer ${{ secrets.PARENT_REPO_PAT }}" \
+            https://api.github.com/repos/ddpoe/cortex/dispatches \
+            -d '{"event_type": "docs-updated", "client_payload": {"sha": "${{ github.sha }}"}}'

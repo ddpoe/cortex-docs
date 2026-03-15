@@ -4,7 +4,7 @@
     {
       "id": "status",
       "heading": "Status",
-      "content": "**Status:** Proposed\n\n**Date:** 2026-03-15\n\n**Decider:** Dante"
+      "content": "**Status:** Superseded by ADR-009\n\n**Date:** 2026-03-15\n\n**Decider:** Dante\n\n**Superseded by:** ADR-009 (Unified Staleness and Node Types) — combines ADR-007 with this ADR into a single change."
     },
     {
       "id": "context",
