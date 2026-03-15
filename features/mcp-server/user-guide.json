@@ -1,6 +1,10 @@
 {
   "title": "User Guide: MCP Server",
-  "tags": ["user-guide", "v1", "mcp-server"],
+  "tags": [
+    "user-guide",
+    "v1",
+    "mcp-server"
+  ],
   "sections": [
     {
       "id": "overview",
@@ -17,7 +21,7 @@
     {
       "id": "core-features",
       "heading": "Available Tools",
-      "content": "| Tool | Purpose |\n|---|---|\n| `cortex_build` | Rebuild the index (equivalent to `cortex build .`) |\n| `cortex_list` | List nodes with filters: type, tag, parent_id, location prefix |\n| `cortex_render` | Render a node at detail levels 0-3 |\n| `cortex_graph` | Get a node's neighborhood (in/out/both, configurable depth) |\n| `cortex_search` | Full-text search across all indexed nodes |\n| `cortex_check` | Staleness report with summary counts |\n| `cortex_history` | Change timeline for a node, with stale-window annotations |\n| `cortex_mark_clean` | Record agent verification for a DESC_STALE node |\n| `cortex_write_doc` | Create or update a DocJSON file |\n| `cortex_add_link` | Create an edge between two nodes |\n| `cortex_render_doc` | Render a DocJSON file to markdown |\n| `cortex_list_undocumented` | Find nodes without associated documentation |",
+      "content": "| Tool | Purpose |\n|---|---|\n| `cortex_build` | Rebuild the index (equivalent to `cortex build .`) |\n| `cortex_list` | List nodes with filters: type, tag, parent_id, location prefix |\n| `cortex_render` | Render a node at detail levels 0-3 |\n| `cortex_graph` | Get a node's neighborhood (in/out/both, configurable depth) |\n| `cortex_search` | Full-text search across all indexed nodes |\n| `cortex_check` | Staleness report with summary counts |\n| `cortex_history` | Change timeline for a node, with stale-window annotations |\n| `cortex_mark_clean` | Record agent verification for a DESC_STALE node |\n| `cortex_source` | Read raw source body of a node by ID |\n| `cortex_write_doc` | Create or update a DocJSON file |\n| `cortex_add_link` | Create an edge between two nodes |\n| `cortex_update_section` | Patch a single section's content/heading in a DocJSON file |\n| `cortex_read_doc` | Read a DocJSON file as markdown, optionally a single section |\n| `cortex_list_undocumented` | Find nodes without associated documentation |\n| `cortex_workflow_list` | List dFlow workflows/tasks/test_workflows with module and role filters |\n| `cortex_workflow_detail` | Show ordered steps and metadata for a single workflow |",
       "level": 2
     },
     {

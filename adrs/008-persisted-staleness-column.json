@@ -1,0 +1,25 @@
+{
+  "title": "ADR-008: Persist Staleness to the Database",
+  "sections": [
+    {
+      "id": "status",
+      "heading": "Status",
+      "content": "**Status:** Proposed\n\n**Date:** 2026-03-15\n\n**Decider:** Dante"
+    },
+    {
+      "id": "context",
+      "heading": "Context & Problem Statement",
+      "content": "Staleness is currently computed on-demand every time it is needed. Two separate code paths produce it:\n\n- `_compute_staleness_from_history()` — reads the `node_history` table to derive status from the last recorded build event. Fast (no file I/O), but blind to any code changes that occurred after the last `cortex build`. Returns CLEAN for nodes that changed post-build.\n- `_compute_staleness_rich()` — reads current file content, computes hashes, and compares against stored hashes. Authoritative but runs on every request.\n\nThe viz `/api/all` endpoint uses the history path; the viz `/api/check` endpoint, the MCP `cortex_check` tool, and the CLI `cortex check` command all use the rich path. This means the viz dashboard and the MCP/CLI tool routinely disagree — sometimes by a large margin (e.g. 67 CODE_STALE on initial load vs 171 from `cortex check` on the same project).\n\nThis creates a trust problem: a developer cannot rely on the graph view staleness rings or summary chips to reflect the actual state of their codebase without manually clicking the Check button first."
+    },
+    {
+      "id": "decision",
+      "heading": "The Decision",
+      "content": "We will persist the computed staleness status for each node to the database as a `staleness` column on the `nodes` table. All consumers (viz `/api/all`, MCP `cortex_check`, CLI `cortex check`) read from this column. The rich hash-based computation (`_compute_staleness_rich`) remains the only writer.\n\n### Schema change\n\n```sql\nALTER TABLE nodes ADD COLUMN staleness TEXT NOT NULL DEFAULT 'CLEAN';\n```\n\nMigration: on first `cortex build` after upgrade, all nodes get staleness written from the rich check. Older DBs without the column fall back to on-demand computation until the next build.\n\n### Write points\n\nStaleness is written to the DB at three points:\n\n1. **`cortex build`** — after discovery and hash computation, write the full staleness map for all nodes.\n2. **`cortex check` (CLI/MCP)** — after running `_compute_staleness_rich`, write updated values back.\n3. **Viz `/api/check`** — after running `_compute_staleness_rich`, write updated values back (same as CLI check).\n\n### Read points\n\n- **Viz `/api/all`** — reads `staleness` column directly from `nodes` table. No computation on request.\n- **MCP `cortex_check`** — reads from `nodes` table. No computation unless `--fresh` flag passed.\n- **Viz `/api/check`** — recomputes (rich path), writes back, then returns the updated values.\n\n### The Check button\n\nThe Check button and `/api/check` endpoint remain the user-facing action for recomputing staleness against current files. They still run `_compute_staleness_rich` and persist the results. The difference is that the button is now a deliberate refresh action, not a workaround for an inaccurate initial load.\n\n### Background auto-check on viz load\n\nThe background `_refreshStaleness()` fire-and-forget added to `_loadProject` can be removed once this ADR is implemented — the initial load will already reflect the last persisted check.\n\n### Vocabulary note (ADR-007 dependency)\n\nThis ADR uses the current staleness vocabulary (`CODE_STALE`, `DESC_STALE`, `CONTENT_STALE`, `COVERAGE_STALE`). When ADR-007 is implemented, the stored values will change to the new vocabulary (`CONTENT_STALE`, `DESC_STALE`, `LINKED_STALE`). The schema and write/read logic are identical — only the string values change."
+    },
+    {
+      "id": "consequences",
+      "heading": "Consequences",
+      "content": "**Positive:**\n- Single source of truth for staleness — viz, MCP tool, and CLI all read the same value from the DB.\n- `/api/all` is instant (pure DB read, no file I/O on request).\n- No race conditions between history-path and rich-path results.\n- No background fire-and-forget needed on viz page load.\n- Staleness survives server restarts — correct on first load after a restart.\n- The dashboard summary chips are trustworthy on page load without user action.\n\n**Negative:**\n- DB migration required — `ALTER TABLE nodes ADD COLUMN staleness`.\n- All existing DBs will show CLEAN until the next `cortex build` or `cortex check` writes the column.\n- `_compute_staleness_from_history` becomes dead code and can be removed.\n\n**Neutral:**\n- `_compute_staleness_rich` is unchanged — it remains the authoritative computation.\n- The Check button UX is unchanged.\n- Staleness is still a point-in-time snapshot; it goes stale again as soon as files change after the last write."
+    }
+  ]
+}

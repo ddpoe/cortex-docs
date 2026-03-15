@@ -10,7 +10,7 @@
     {
       "id": "overview",
       "heading": "Overview",
-      "content": "The cortex MCP server exposes 14 tools via the Model Context Protocol. All tools are implemented in `cortex/mcp_server.py` using the FastMCP framework. Each tool accepts `project_root` (str) as its first parameter.",
+      "content": "The cortex MCP server exposes 16 tools via the Model Context Protocol. All tools are implemented in `cortex/mcp_server.py` using the FastMCP framework. Each tool accepts `project_root` (str) as its first parameter.",
       "level": 2
     },
     {
@@ -167,6 +167,28 @@
       "links": [
         {
           "node_id": "cortex::cortex.mcp_server::cortex_list_undocumented"
+        }
+      ]
+    },
+    {
+      "id": "cortex-workflow-list",
+      "heading": "cortex_workflow_list",
+      "content": "List dFlow workflow, task, and test_workflow functions. Returns one line per function with name, decorator role, purpose summary, file location, and the corresponding cortex node ID.\n\n**Parameters:**\n| Name | Type | Required | Description |\n|---|---|---|---|\n| `project_root` | str | Yes | Absolute path to the indexed project |\n| `module` | str | No | File path substring filter, e.g. `\"staleness\"` returns only workflows in files containing that string |\n| `role` | str | No | Filter by decorator type: `\"workflow\"`, `\"task\"`, or `\"test_workflow\"`. Omit to list all roles |\n| `max_results` | int | No (default 30) | Maximum rows returned |\n| `offset` | int | No (default 0) | Pagination offset |\n\n**Returns:** `[N of M workflows]` header, then one line per function. Each line includes the cortex node ID (when resolved) so agents can cross into `cortex_render` / `cortex_graph` / `cortex_source`. Returns a graceful message when no dFlow database is present.\n\n**Data source:** Queries `.dflow/workflow.db` directly (no import of dFlow). Cross-references cortex.db for node ID resolution.",
+      "level": 2,
+      "links": [
+        {
+          "node_id": "cortex::cortex.mcp_server::cortex_workflow_list"
+        }
+      ]
+    },
+    {
+      "id": "cortex-workflow-detail",
+      "heading": "cortex_workflow_detail",
+      "content": "Show ordered steps and metadata for a single dFlow workflow or task function.\n\n**Parameters:**\n| Name | Type | Required | Description |\n|---|---|---|---|\n| `project_root` | str | Yes | Absolute path to the indexed project |\n| `workflow_id` | str | Yes | Function name (e.g. `\"run_pipeline\"`) or dFlow integer ID from `cortex_workflow_list` |\n| `verbose` | bool | No (default `False`) | When `True`, include `purpose`, `inputs`, `outputs`, and `critical` fields on both the workflow header and each step |\n\n**Returns:** Header with function name, role, file location, and cortex node ID. Followed by ordered steps with step number, name, and delegate target (cortex node ID when resolved). For `@test_workflow` functions, also lists coverage targets (validates links). With `verbose=True`, each step includes purpose, inputs, outputs, and critical fields.\n\n**Data source:** Queries `.dflow/workflow.db` directly. Cross-references cortex.db for node ID resolution.",
+      "level": 2,
+      "links": [
+        {
+          "node_id": "cortex::cortex.mcp_server::cortex_workflow_detail"
         }
       ]
     }
