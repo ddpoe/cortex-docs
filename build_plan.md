@@ -61,7 +61,7 @@ pyproject.toml
 - All `.py` modules in `pm_image_analysis` appear as `composite_process` nodes
 - All `@task` functions appear as `atomic_process` nodes with `level_1` from `purpose=`
 - All `@workflow` functions appear as `composite_process` nodes
-- All `@test_workflow`/`@test_suite` appear as `constraint:test` nodes
+- All `@test_workflow`/`@test_suite` appear as `atomic_process` nodes with `test` tag (ADR-009: `constraint` type removed)
 - All `coverage_links` rows produce `validates` edges
 - `composes` edges connect modules to their functions
 - `delegates_to` edges connect workflows to their called tasks (from AutoStep targets)
@@ -175,11 +175,11 @@ No `dflow` dependency. No `sqlmodel`. No FastAPI. SQLite comes from Python's std
 
 ## Future Features (Backlog)
 
-### Staleness as Git Age (Not Just CLEAN/DRIFT)
+### Staleness as Git Age (Enhancement over Persisted Staleness)
 
-**Current behaviour:** `cortex_check` reports `CLEAN` vs `STRUCTURAL_DRIFT` based on whether the source file hash has changed since the node was last indexed.
+**Current behaviour (post-ADR-009):** Staleness is persisted in the `nodes.staleness` column using a unified 6-status vocabulary: `CONTENT_STALE`, `DESC_STALE`, `LINKED_STALE`, `STRUCTURAL_DRIFT`, `VERIFIED`, `CLEAN`. Computed by a single shared engine in `cortex/index/staleness.py`, written during `cortex build` and `cortex check`.
 
-**Proposed:** Surface *how stale* a node is — specifically, how many commits ago the file was last scanned. An agent seeing `STRUCTURAL_DRIFT (4 commits ago)` can make a much better decision about whether to re-read the source than one seeing just `STRUCTURAL_DRIFT`.
+**Proposed:** Layer git-age information on top of the persisted staleness status — surface *how stale* a node is, not just *that* it is stale. An agent seeing `CONTENT_STALE (4 commits ago)` can prioritize better than one seeing just `CONTENT_STALE`.
 
 **Implementation sketch:**
 - At build time, store `git rev-parse HEAD` in a `.cortex/meta.json` alongside the DB.

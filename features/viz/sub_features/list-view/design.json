@@ -1,30 +1,51 @@
 {
   "title": "Design Spec: List View",
-  "tags": ["design", "v1", "viz", "list-view"],
+  "tags": [
+    "design",
+    "v1",
+    "viz",
+    "list-view"
+  ],
   "sections": [
     {
       "id": "architecture",
       "heading": "Architecture Overview",
-      "content": "The list view is implemented in `list.js` (84 lines). It renders `App.state.filteredNodes` as a sortable HTML table with columns: Title, Type, Location, Staleness, Tags.\n\nThe table re-renders from scratch on every filter change or sort toggle — no virtual scrolling or pagination. For typical projects (<2000 nodes) this is fast enough. Staleness badges use the same CSS classes as the graph view for visual consistency.",
-      "level": 2
+      "content": "The list view is implemented in `list.js` (~520 lines). It renders `App.state.filteredNodes` as a sortable, groupable HTML table with 7 toggleable columns: Select (checkbox), Name, Type, Location, Staleness, Tags, Code (preview).\n\n**Core state** lives on the `List` object:\n- `_sortCol` / `_sortDir` — current sort column and direction\n- `_groupBy` — null (flat) or one of: `node_type`, `subtype`, `location`, `staleness`, `tag`\n- `_selectedIds` (Set) — checkbox-selected node IDs for bulk operations\n- `_collapsedGroups` (Set) — which group headers are collapsed\n- `_columns` (Object) — column visibility map (`{check: true, title: true, …, code: false}`)\n- `_causeCache` — staleness-cause API results cached per node ID\n- `_previewCache` — 3-line source snippets cached per node ID\n- Monaco state (`_monacoEditor`, `_focusMode`, `_currentSourceData`, etc.)\n\n**Rendering flow:** The table re-renders from scratch on every filter, sort, group, or column change. Nodes are first sorted, then bucketed by `_groupNodes()` into collapsible groups (each with a header row showing label + count). Column visibility is applied per-cell during row construction. For <2000 nodes this is fast enough; virtual scrolling is deferred until projects exceed 5000.\n\n**Sidebar integration:** Two list-only sidebar sections (`.list-only-section`) are toggled visible/hidden in `App.setView()`:\n- **Group By** — radio selector that calls `List.setGroupBy()`\n- **Actions** — Run Check, Verify Selected, View in Graph buttons\n\n**Code preview (3 tiers):**\n- Tier 1 (inline): Optional \"Code\" column shows 3-line monospace snippet, lazy-loaded from `/api/nodes/{id}/source` with client-side caching.\n- Tier 2 (panel): \"View Source\" link opens a bottom-split Monaco panel. Own instance, independent of Workflow/Tests.\n- Tier 3 (focus): Toggle switches between full file (highlighted range) and isolated function view (offset line numbers preserving original file positions).\n\n**Spawn graph:** `viewInGraph()` collects selected or filtered node IDs, filters `App.state.allEdges` to only connecting edges (client-side), loads via `Graph.loadAll()`, and switches to graph view. No backend endpoint required.",
+      "level": 2,
+      "links": [
+        {
+          "node_id": "cortex::cortex.viz.server::get_meta"
+        },
+        {
+          "node_id": "cortex::cortex.viz.server::get_node_source"
+        },
+        {
+          "node_id": "cortex::cortex.viz.server::get_staleness_cause"
+        },
+        {
+          "node_id": "cortex::cortex.viz.server::bulk_verify"
+        }
+      ]
     },
     {
       "id": "sequence-diagram",
       "heading": "Key Interactions",
-      "content": "```\nList.render(nodes, stalenessMap):\n  1. Store nodes + staleness in instance vars\n  2. Update count label: \"N nodes\"\n  3. Sort by current _sortCol / _sortDir\n  4. For each node: build <tr> with type badge, staleness badge, tag chips\n  5. Bind click handler on each row \u2192 App.selectNode(node.id)\n\nColumn header click:\n  1. If same column \u2192 toggle sort direction\n  2. If different column \u2192 set ascending\n  3. Re-render rows\n```",
+      "content": "```\nList.render(nodes, stalenessMap):\n  1. Store nodes + staleness, prune stale selections\n  2. Update toolbar: \"N nodes\" or \"K of N selected\"\n  3. _renderRows():\n     a. Sort by _sortCol / _sortDir\n     b. _groupNodes() → [{key, label, nodes}] (flat if _groupBy is null)\n     c. For each group:\n        - Render group header <tr> with toggle/label/count (if grouped)\n        - Skip rows if group is collapsed\n        - For each node: build <tr> with cells gated by _columns visibility\n     d. Update sort indicators on <th> elements\n     e. Sync select-all checkbox state\n\nList.setGroupBy(field):\n  1. Update _groupBy, clear collapsed state\n  2. Re-render rows\n\nList.openSource(nodeId):\n  1. Show #list-source-panel, fetch /api/nodes/{id}/source\n  2. If Monaco ready → _renderMonaco(data)\n  3. Else queue as _pendingSource, render placeholder\n\nList.toggleFocus():\n  1. Flip _focusMode flag\n  2. Re-render Monaco with either full content or sliced focus range\n  3. In focus mode: line numbers offset to match original file positions\n\nList.viewInGraph():\n  1. Collect IDs from _selectedIds (or all filteredNodes)\n  2. Filter allEdges to edges with both endpoints in set\n  3. Graph.loadAll(subNodes, subEdges, …)\n  4. App.setView('graph')\n\nColumn toggle:\n  1. User clicks \"Columns\" dropdown or \"{ } Code\" shortcut\n  2. toggleColumn(colKey, visible) → update _columns, sync <th> hidden class\n  3. Re-render rows (cells gated by _columns)\n```",
       "level": 2
     },
     {
       "id": "decision-log",
       "heading": "Implementation Trade-offs",
-      "content": "### Full DOM rebuild vs virtual scrolling\nThe table rebuilds all rows on every re-render. For <2000 nodes this is imperceptible. Virtual scrolling would add complexity for marginal gain. If projects exceed 5000 nodes, pagination should be added.\n\n### Shared staleness CSS\nStaleness badges use the same `.staleness-badge.DESC_STALE` etc. classes as everywhere else, ensuring consistent color coding across views.",
+      "content": "### Full DOM rebuild vs virtual scrolling\nThe table rebuilds all rows on every re-render. For <2000 nodes this is imperceptible. Virtual scrolling would add complexity for marginal gain. If projects exceed 5000 nodes, pagination should be added.\n\n### Shared staleness CSS\nStaleness badges use the same `.staleness-badge.DESC_STALE` etc. classes as everywhere else, ensuring consistent color coding across views.\n\n### No sidebar file fork\nThe PRD suggested forking `sidebar-graph.js` / `sidebar-list.js`. Instead, list-only sections use a `.list-only-section` CSS class toggled in `App.setView()`. This avoids throwaway work since the frontend is planned for a TypeScript migration.\n\n### Client-side graph spawn (no /api/subgraph)\nThe PRD specified a `POST /api/subgraph` endpoint. Since `App.state.allEdges` is already loaded, edge filtering is done client-side in `viewInGraph()`. This avoids a new endpoint and round-trip for the common case.\n\n### Own Monaco instance\nThe list source panel uses its own Monaco instance, independent of Workflow and Tests. All three register via the same CDN AMD loader but maintain separate `_monacoReady` / `_monacoEditor` state. This avoids cross-view disposal issues.\n\n### Lazy-loaded code previews\nTier 1 snippets are fetched on first render of the Code column, not eagerly. The `/api/nodes/{id}/source` response is cached per node ID. This avoids a burst of API calls when the Code column is toggled on for hundreds of rows — only visible rows trigger fetches during scroll.\n\n### Column visibility via cell gating\nRather than hiding columns via CSS `display:none` on `<td>` elements (which breaks `colspan` in group headers), column visibility is applied during row construction — cells for hidden columns are simply not appended. The `_visibleColCount()` method provides the correct colspan for group headers.",
       "level": 2,
-      "tags": ["decisions"]
+      "tags": [
+        "decisions"
+      ]
     },
     {
       "id": "verification-plan",
       "heading": "Technical Verification",
-      "content": "- Sort by each column in ascending and descending order\n- Click a row and verify the detail panel opens with correct node data\n- Filter by type in sidebar and verify the count label updates\n- Staleness badges match the colors from `/api/check`",
+      "content": "- Sort by each column in ascending and descending order\n- Click a row and verify the detail panel opens with correct node data\n- Filter by type in sidebar and verify the count label updates\n- Staleness badges match the colors from `/api/check`\n- Group by each option (type, subtype, module, staleness, tag) and verify headers show correct counts\n- Collapse and expand groups; verify row visibility toggles\n- Select rows via checkboxes; verify toolbar count updates\n- Select all → verify all rows checked; deselect → verify cleared\n- Click stale badge → tooltip shows cause from `/api/nodes/{id}/staleness-cause`\n- Click row verify button → node transitions to VERIFIED after prompt\n- Bulk verify selected → all selected nodes transition; selection clears\n- \"Run Check\" button → staleness refreshes in place; tooltip cache clears\n- Toggle Code column via toolbar or Columns menu → preview cells appear/disappear\n- Code preview loads 3-line snippet from correct focus range\n- Click \"View Source\" → bottom Monaco panel opens with file content\n- Focus Function toggle → Monaco shows only function lines with offset numbering\n- Drag resize handle on source panel → panel height adjusts\n- Close source panel → Monaco disposed, panel hidden\n- \"View in Graph\" with selection → graph loads only selected nodes + connecting edges\n- \"View in Graph\" without selection → graph loads all filtered nodes\n- Location column links open VS Code at correct file and line\n- Column menu → toggle each column → table re-renders with correct columns",
       "level": 2
     }
   ]

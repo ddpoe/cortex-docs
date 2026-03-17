@@ -1,0 +1,52 @@
+{
+  "title": "Axiom: Product Vision",
+  "tags": [
+    "architecture",
+    "vision"
+  ],
+  "sections": [
+    {
+      "id": "what-axiom-is",
+      "heading": "What Axiom Is",
+      "content": "Axiom is the unification of three systems — **Cortex** (AST-based code knowledge graph), **DocJSON** (structured, section-level documentation format), and **dFlow** (workflow annotation framework) — into a single Python package with one shared SQLite database.\n\nIt is a **local-first code intelligence layer designed for AI agents**. It gives an LLM a persistent, queryable, staleness-aware understanding of a codebase, its documentation, and its workflows — exposed via 17 MCP tools that cover the full read/write/check cycle.\n\nThe unification is proposed in ADR-005. Until then, the three systems operate as separate packages with a cross-DB integration layer in the viz dashboard.\n\n**Installation tiers (post-unification):**\n- `pip install axiom` — dFlow + DocJSON + indexer + CLI (pure Python + sqlite3)\n- `pip install axiom[viz]` — adds FastAPI dashboard\n- `pip install axiom[mcp]` — adds MCP server\n- `pip install axiom[all]` — everything",
+      "links": [
+        {
+          "node_id": "cortex::docs.adrs.005-axiom-unification"
+        }
+      ]
+    },
+    {
+      "id": "problem",
+      "heading": "The Problem It Solves",
+      "content": "AI coding agents generate code faster than humans can understand it. The bottleneck in software development has shifted from **writing** to **comprehension**.\n\nThe failure mode looks like this:\n1. Human gives agent a task\n2. Agent writes 200+ lines across 5 files\n3. Human skims the diff, approves\n4. Repeat 50 times\n5. Human no longer understands their own codebase\n\nDocumentation goes stale immediately. Tests don't cover new code. Architectural decisions are buried in chat transcripts. The agent has no memory of what it built last week.\n\n**No existing tool combines all of:**\n- A code knowledge graph (what exists, how it connects)\n- A structured documentation layer (what was intended, linked to code)\n- Staleness detection with propagation (what drifted)\n- An MCP interface for agents to read, write, and verify (the feedback loop)\n\nSourcegraph has the best code graph but no doc sync. Swimm has the best doc sync but no code graph and is SaaS-only. Backstage has a service catalog but no code-level intelligence. Community MCP servers are fragmented and single-purpose. Axiom combines all four into a local-first, open system."
+    },
+    {
+      "id": "whats-different",
+      "heading": "What's Genuinely Different",
+      "content": "### The Staleness Triangle\n\nCortex hashes code bodies and docstrings separately (SHA-256[:16]). When code changes, the node becomes `CODE_STALE`. Any doc section linked to that node becomes `CONTENT_STALE`. Any test validating that node becomes `COVERAGE_STALE`. Composite nodes (modules) inherit the worst child status. This propagation is unique — Swimm (the closest competitor, $16-28/seat/month SaaS) detects doc-to-code drift but doesn't propagate through a graph or expose it to agents via MCP.\n\n### DocJSON: Queryable, Linkable, Section-Level Docs\n\nDocJSON documents are JSON files where each section has an `id`, `heading`, `content`, optional `tags`, and `links`. Links can point to **any node type** — code nodes, other doc sections, or even other documents. This means:\n- A design spec section can link to the PRD section it implements\n- A PRD can link to the ADR that motivated it\n- A user guide can link to the code functions it describes\n- An impact report can link to every doc section affected by a code change\n\nSections are individually addressable and patchable via MCP (`cortex_update_section`). No other tool has section-level structured docs that are both human-readable and machine-queryable.\n\n### 17 MCP Tools (Full Read/Write/Check Cycle)\n\nMost competitors expose 3-5 MCP tools. Axiom's MCP server covers search, graph traversal, staleness checking, doc reading/writing/patching, workflow inspection, source retrieval, and verification — everything an agent needs to understand, modify, and maintain a codebase without raw file access.\n\n### Verification Audit Trail\n\n`cortex_mark_clean` records an `AGENT_VERIFIED` event with the code hash at verification time. If the code changes again, the verification is automatically invalidated. This creates an auditable trail of which agent reviewed which node and when — no other tool does this.\n\n### PROV-O Ontology with Build-Time Validation\n\n5 node types (atomic_process, composite_process, entity, constraint, document) and 9 edge types (composes, delegates_to, depends_on, consumes, produces, constrains, validates, documents, supersedes). Every edge is validated against the ontology at build time. This is principled graph modeling, not ad-hoc labels."
+    },
+    {
+      "id": "three-pillars",
+      "heading": "The Three Pillars",
+      "content": "### dFlow — Workflow Annotations (\"What order, why this sequence\")\n\nPython decorators (`@workflow`, `@task`) and markers (`Step()`, `AutoStep()`) that capture the sequential logic of a workflow — step names, purposes, inputs, outputs, and cross-module call resolution. Planned: polyglot annotation packages via dFlow ADR-001 (Python first, then JS/TS).\n\ndFlow answers: *In what order does this code execute, and why does each step exist?*\n\n### Cortex — AST Knowledge Graph (\"What exists, what changed, what's stale\")\n\nPure AST parsing of Python source → nodes (functions, modules, classes) + edges (composes, depends_on, validates, delegates_to). Separate code/docstring hashing for independent staleness detection. History table records every change. Planned: tree-sitter for multi-language support (ADR-006).\n\nCortex answers: *What is in this codebase, how does it connect, and what drifted since I last looked?*\n\n### DocJSON — Structured Documentation (\"What was intended, linked to code\")\n\nJSON-native documents with section-level granularity. Each section can be tagged, linked to code nodes, linked to other doc sections, and individually patched. Templates enforce consistent structure (PRD, Design Spec, User Guide, ADR). Doc sections linked to code nodes inherit staleness signals.\n\nDocJSON answers: *What was the plan, what are the requirements, and which parts of the plan are still accurate?*"
+    },
+    {
+      "id": "limitations",
+      "heading": "Current Limitations",
+      "content": "- **Python-only scanning.** The AST scanner only handles Python. Tree-sitter support for JS/TS is proposed (ADR-006) but not implemented. Prerequisite: dFlow ADR-001 (polyglot annotations package).\n- **No semantic search.** Full-text search uses SQLite FTS5 (keyword matching with BM25 ranking). No vector embeddings. For \"find the function that handles auth timeouts,\" keyword search loses to semantic search.\n- **No cross-repo intelligence.** Cortex is project-scoped. Sourcegraph's value prop is searching across thousands of repos.\n- **Single-developer focus.** No concurrent access, no team features, no auth. Designed for one developer + their AI agents.\n- **Viz dashboard is a monolith.** `server.py` is 2700+ lines with module-level mutable state. Refactoring is planned but not started."
+    },
+    {
+      "id": "roadmap",
+      "heading": "Roadmap",
+      "content": "Ordered by the current priorities doc:\n\n1. **Viz Test Dashboard migration** — Current focus. Migrate from dFlow-based to cortex-native test data.\n2. **Viz refactoring** — Remove dead CSS, extract shared utilities, decompose large JS/Python files.\n3. **dFlow ADR-001: annotations split** — Extract `dflow-annotations` as a zero-dependency leaf package. Enables polyglot (JS/TS) annotations.\n4. **ADR-006: JS/TS scanner** — Add tree-sitter-based scanning for JavaScript and TypeScript. Depends on dflow-annotations JS package.\n5. **PEV Agent System** — Architect/Builder/Auditor multi-agent orchestration via LangGraph + Claude + Cortex MCP tools. See `features.pev-agent-system.prd`.\n6. **ADR-005: Axiom unification** — Merge dFlow, Cortex, DocJSON into one package. Starts when dFlow API is stable and cross-DB joins become a maintenance burden.",
+      "links": [
+        {
+          "node_id": "cortex::docs.priorities"
+        },
+        {
+          "node_id": "cortex::docs.adrs.005-axiom-unification"
+        }
+      ]
+    }
+  ]
+}

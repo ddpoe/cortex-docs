@@ -1,0 +1,35 @@
+{
+  "title": "PRD: PEV Agent System",
+  "tags": [
+    "prd",
+    "pev",
+    "agent"
+  ],
+  "sections": [
+    {
+      "id": "problem",
+      "heading": "Problem Statement",
+      "content": "Current AI-assisted development is undifferentiated: a single agent handles planning, coding, documentation, and verification in one pass. There is no structural separation between phases, no contract between a plan and its implementation, and no automated reconciliation after code is written.\n\nThis creates three problems:\n\n1. **No planning gate.** The agent starts coding before the human approves an approach. When the approach is wrong, compute and context are wasted. The human must re-read everything to understand what happened.\n\n2. **Deviations are invisible.** When an agent deviates from a plan (uses a different library, changes a data model, skips a requirement), the deviation is buried in the chat transcript. There is no structured artifact that says \"I changed X because Y, and this affects Z.\"\n\n3. **Documentation is an afterthought.** After code is written, docs and tests are either skipped or bolted on without checking whether they're consistent with what was actually built. Staleness accumulates silently.\n\nThe PEV (Planning → Execution → Validation) agent system addresses this by separating AI-assisted development into three structurally enforced phases with human approval gates, distinct tool permissions, and an automated verification loop powered by Cortex's staleness engine."
+    },
+    {
+      "id": "user-stories",
+      "heading": "User Stories",
+      "content": "1. As a developer, I want the **Architect** to read my existing codebase (via Cortex) and existing docs (via DocJSON) before proposing a plan, so the plan is grounded in what actually exists — not hallucinated.\n\n2. As a developer, I want the Architect's output to be a **Design Spec pinned to Cortex node IDs**, so I can review exactly which functions/modules will be affected before any code is written.\n\n3. As a developer, I want a **human approval gate** between planning and execution, so I can reject or modify the plan before committing compute to it.\n\n4. As a developer, I want the **Builder** to output an **Implementation Manifest** alongside code, so I can see structured deviations (\"I used X instead of Y because Z\") rather than hunting through chat transcripts.\n\n5. As a developer, I want the Builder to have **no access to doc-writing tools**, so it cannot silently update documentation to match its deviations — that's the Auditor's job after human review.\n\n6. As a developer, I want the **Auditor** to run `cortex_check` after updating docs and **loop back if staleness remains**, so I don't have to manually chase drift.\n\n7. As a developer, I want **checkpointed state** so I can close my laptop mid-session and resume the PEV workflow later from exactly where I left off.\n\n8. As a developer, I want each agent to have **distinct MCP tool permissions** enforced structurally (not just by prompt), so the separation of concerns is real, not aspirational."
+    },
+    {
+      "id": "requirements",
+      "heading": "V1 Requirements",
+      "content": "### Orchestration\n- LangGraph `StateGraph` with SQLite checkpointer (at `.cortex/pev_checkpoints.db`)\n- Four graph nodes: Architect, Builder, Auditor, Check\n- Human `interrupt()` gates before Builder and Auditor nodes\n- Conditional edge: Check → Auditor (if stale count > 0 and iteration < 3) or Check → Done\n\n### Agent Nodes\n- Each node calls Claude (via Anthropic API or Claude Agent SDK) with a distinct system prompt and MCP tool set\n- **Architect**: read-only Cortex access — `cortex_search`, `cortex_graph`, `cortex_read_doc`, `cortex_list`, `cortex_source`, `cortex_workflow_list`, `cortex_workflow_detail`\n- **Builder**: targeted reads + code write — `cortex_source`, `cortex_graph`, `cortex_search`, plus file write and shell execution. No doc tools.\n- **Auditor**: doc write + check — `cortex_check`, `cortex_update_section`, `cortex_mark_clean`, `cortex_add_link`, `cortex_read_doc`, `cortex_list_undocumented`. No code write tools.\n\n### Artifacts\n- Architect outputs a **Design Spec** as DocJSON (via `cortex_write_doc` or returned as structured JSON for human review)\n- Builder outputs an **Implementation Manifest** as structured JSON:\n  ```json\n  {\n    \"task_id\": \"string\",\n    \"objective_met\": true,\n    \"deviations\": [{\"original_plan\": \"...\", \"actual\": \"...\", \"reason\": \"...\", \"impact\": \"...\"}],\n    \"assumptions\": [\"string\"]\n  }\n  ```\n- Auditor outputs an **Impact Report** listing doc sections updated, nodes marked clean, and remaining staleness\n\n### State\n- `PEVState` TypedDict: `request`, `spec` (DocJSON), `manifest` (JSON), `impact_report`, `staleness_summary`, `iteration` (int)\n- State persisted via LangGraph SQLite checkpointer\n- Resumable across process restarts via thread_id"
+    },
+    {
+      "id": "non-goals",
+      "heading": "Non-Goals (V1)",
+      "content": "- **Multi-model routing.** V1 uses Claude for all three agents. Model tiering (cheap model for Architect, expensive for Builder) is icebox.\n- **Parallel agent execution.** Agents run sequentially. Parallel Architect + Builder would break the approval gate contract.\n- **Automatic PR creation.** The Builder writes code locally. Pushing, branching, and PR creation remain manual or via existing tools.\n- **CI/CD integration.** No GitHub Action or webhook triggers. PEV is invoked manually from CLI.\n- **Production deployment.** Single-developer, local-only. No auth, no multi-tenant, no cloud hosting.\n- **Automatic test generation.** The Auditor proposes doc updates and marks nodes verified. Test writing is icebox."
+    },
+    {
+      "id": "icebox",
+      "heading": "Icebox / Future Ideas",
+      "content": "- **Semantic Impact Report GitHub Action** — Run `cortex_check` in CI, generate a markdown report of affected docs/tests, post as PR comment.\n- **Model tiering** — Use a fast/cheap model (Haiku) for the Architect's initial scan, expensive model (Opus) for the Builder's code generation.\n- **Auto-generated test suggestions** — Auditor proposes test stubs for new code nodes that have no `validates` edges.\n- **PEV session history** — Store completed PEV sessions as DocJSON docs, linked to the code nodes they modified. Creates an audit trail of agent-driven changes.\n- **Streaming UI** — Live dashboard showing PEV progress: which agent is active, what tools it's calling, current staleness count.\n- **Builder → Auditor handoff without human gate** — For trusted, low-risk changes (e.g., docstring-only updates), skip the human approval between Builder and Auditor."
+    }
+  ]
+}
