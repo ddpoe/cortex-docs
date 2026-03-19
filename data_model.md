@@ -49,7 +49,7 @@ The `CortexIndex` is the output of `cortex build`. It is a JSON file written to 
 |---|---|---|---|
 | `id` | string | yes | Globally unique. Format: `{project_id}::{dotpath}::{name}` |
 | `node_type` | string | yes | One of the ontology node_types enum |
-| `subtype` | string | no | Ontology subtype (e.g. `test`, `decision`, `data_artifact`) |
+| `subtype` | string | no | Ontology subtype (e.g. `test`, `decision`, `config`, `data_artifact`) |
 | `title` | string | yes | Human-readable name |
 | `tags` | list[string] | no | Project-scoped vocabulary from `cortex_config.yaml` |
 | `location` | string | yes | Relative path to the file containing this node |
@@ -59,7 +59,7 @@ The `CortexIndex` is the output of `cortex build`. It is a JSON file written to 
 | `level_2` | string | no | Full docstring. Populated when available. |
 | `level_3_location` | string | no | `path/to/file.py#L45-L120`. Agent reads file at this location for full code. |
 | `level_steps` | list[object] | no | Ordered step sequence extracted from `Step()` / `AutoStep()` calls in the function body. `null` when no step markers are present. See [Step Markers](#step-markers) below. |
-| `source` | string | yes | `dflow`, `ast`, `doc_scanner`, `manual` |
+| `source` | string | yes | `dflow`, `ast`, `doc_scanner`, `config_scanner`, `manual` |
 | `source_hash` | string | yes | SHA-256 (first 16 chars) of the function's raw source. Recomputed on every `cortex scan`. |
 | `doc_hash` | string | no | SHA-256 (first 16 chars) of the docstring only. Populated when a docstring exists. |
 | `last_modified_commit` | string | no | Short commit SHA of the last commit that changed this node's source. Populated when git history is available. |
@@ -146,7 +146,7 @@ Examples:
 | `target_id` | string | yes | ID of the destination node |
 | `edge_type` | string | yes | One of the ontology edge_types enum |
 | `note` | string | no | Optional human explanation of why this edge exists |
-| `source` | string | yes | `dflow`, `ast`, `doc_scanner`, `manual` |
+| `source` | string | yes | `dflow`, `ast`, `doc_scanner`, `config_scanner`, `manual` |
 | `asserted_at_hash` | string | no | `source_hash` of the target node at the time this edge was asserted. **Semantic edges only** — structural edges (`composes`, `delegates_to`, `depends_on`) are recomputed and never carry this field. |
 | `confidence` | string | no | `VERIFIED`, `UNVERIFIED`, or `BROKEN`. **Semantic edges only.** Set and maintained by `cortex check`. See [ontology.md](ontology.md#structural-vs-semantic-edges). |
 

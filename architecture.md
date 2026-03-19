@@ -38,6 +38,8 @@ Cortex is **not**:
 │   Scanners:                                                   │
 │     module_scanner.py  — pure AST + dFlow DB reader          │
 │     doc_scanner.py     — markdown → section tree             │
+│     json_doc_scanner.py — DocJSON files → section nodes      │
+│     config_scanner.py  — .claude/ config → config nodes      │
 │                                                               │
 │   Index:                                                      │
 │     builder.py         — orchestrates scanners               │

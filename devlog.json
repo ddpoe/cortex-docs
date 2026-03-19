@@ -43,6 +43,17 @@
         "list-view",
         "ux-polish"
       ]
+    },
+    {
+      "id": "2026-03-18",
+      "heading": "2026-03-18 — History Feature Implementation Plan",
+      "content": "History feature implementation plan. Covers the remaining history PRD backlog items across the indexer (Python) and viz (Python server + JS frontend).\n\n**PRD**: `cortex::docs.features.indexer.sub_features.history.prd`\n**Design**: `cortex::docs.features.indexer.sub_features.history.design`\n\n---\n\n### Config Scanner Added (2026-03-19)\n\nAdded `cortex/scanners/config_scanner.py` — scans `.claude/` and other config directories for settings, skills, and hook files. Produces `composite_process` nodes with `subtype=config`, whole-file hashing, mtime fast-pass.\n\n**What changed:**\n- New scanner: `config_scanner.py` with `scan_config_dir()` entry point\n- `builder.py` step 5 calls config scanner for `.claude/` dirs\n- `cortex_ontology.yaml`: added `config` as valid `composite_process` subtype\n- `graph.js`: added `config: '#f0883e'` to `SUBTYPE_COLORS`\n- Tests: 7 test functions in `tests/test_config_scanner.py`\n\n**Docs updated:**\n- Architecture, MVP, data model (markdown docs)\n- Indexer design, viz design, viz PRD (DocJSON docs)\n- This devlog entry",
+      "tags": [
+        "history",
+        "indexer",
+        "viz",
+        "planning"
+      ]
     }
   ]
 }

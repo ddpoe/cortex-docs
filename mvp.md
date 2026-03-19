@@ -12,6 +12,8 @@ The MVP is the **structural layer only**: scan, index, store, serve. No pev-agen
 |---|---|
 | `doc_scanner.py` | `document` + `constraint:decision` nodes from `docs/` markdown |
 | `module_scanner.py` | `atomic_process` + `composite_process` nodes from `.py` AST |
+| `json_doc_scanner.py` | `composite_process` + `atomic_process` (subtype `docjson`) nodes from `docs/` DocJSON |
+| `config_scanner.py` | `composite_process` (subtype `config`) nodes from `.claude/` settings, skills, hooks |
 
 Only the Python stdlib `ast` module is used — no external annotations required. Functions containing `Step()` / `AutoStep()` calls get an optional `level_steps` field — see [Data Model](data_model.md#step-markers).
 
@@ -79,6 +81,8 @@ cortex/
     __init__.py
     doc_scanner.py          # markdown → document + constraint nodes
     module_scanner.py       # Python AST → process nodes + Step()/AutoStep() detection
+    json_doc_scanner.py     # DocJSON files → docjson section nodes + documents edges
+    config_scanner.py       # .claude/ config files → config nodes (settings, skills, hooks)
   index/
     __init__.py
     builder.py              # orchestrates scanners, validates ontology, upserts DB

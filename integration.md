@@ -121,7 +121,28 @@ cortex check <project_root>
 
 ## Part 3: RAG Query
 
-Cortex supports graph-augmented retrieval on top of the index. Embeddings are built from `level_1` text for every node (including document nodes) and stored in a LanceDB vector store at `.cortex/embeddings.lance` alongside `index.json`.
+Cortex supports graph-augmented retrieval on top of the index. Embeddings are stored in a LanceDB vector store at `.cortex/embeddings.lance` alongside `index.json`.
+
+### What Gets Embedded
+
+| Source | Text embedded | Why |
+|---|---|---|
+| Code nodes | `level_1` + `level_2` (signature + docstring) | Captures function intent and API contract without implementation noise |
+| Doc sections | section heading + section content | Captures design rationale, ADR decisions, architectural context |
+
+Raw source code is **not** embedded. Signatures and docstrings carry the semantic meaning; embedding implementation details would add token cost and dilute retrieval relevance.
+
+Code nodes and doc sections live in the same embedding space — a query can surface a design decision or a doc section just as easily as a function.
+
+### Section Length and Chunking
+
+Embedding quality degrades on long text — the vector becomes a blurry average of all concepts rather than a sharp signal for any one. Doc sections are the natural chunking boundary, so keeping sections focused produces better embeddings.
+
+**V1 — Embed as-is with warnings.** Sections are embedded whole. `cortex check` warns when a section exceeds ~300 words (suggesting a split). No automatic chunking.
+
+**V2 — Intra-section chunking for oversized sections.** Sections that exceed the warning threshold are split into overlapping windows at embedding time. Because all content within a section is thematically related, overlaps can be aggressive (50%+) without introducing cross-topic noise. Each chunk gets its own vector but maps back to the same `section_id`, so retrieval still returns the full section.
+
+### CLI Commands
 
 ```bash
 # Build embeddings (run after cortex build, or when nodes change):
@@ -131,10 +152,12 @@ cortex embed <project_root>
 cortex query <project_root> "how does the classifier handle class imbalance" --level 2 --k 5
 ```
 
+Embedding is incremental — only nodes whose `code_hash` or `desc_hash` changed since the last embed run are re-embedded.
+
 ### Query Phases
 
 **Phase 1 — Vector retrieval**
-The query string is embedded and matched against all `level_1` node embeddings. Top-k nodes are returned by cosine similarity. Both code nodes and document nodes are in the same embedding space — a query can surface a design decision or a doc section just as easily as a function.
+The query string is embedded and matched against all node and doc-section embeddings. Top-k results are returned by cosine similarity.
 
 **Phase 2 — Graph expansion**
 For each retrieved node, one hop of semantic edges is followed automatically:
@@ -182,11 +205,15 @@ Primary hits are returned at the requested `--level`. Expanded (graph-neighbour)
 }
 ```
 
-`check_status` at the top level reflects the result of an implicit `cortex check` run before retrieval. If `STRUCTURAL_DRIFT` or `DOC_STALE` nodes exist, the status is surfaced here so the caller knows the index may not be fully current. Individual `confidence` fields on each hit and expanded node give finer-grained trust signals.
+`check_status` at the top level reflects the result of an implicit `cortex check` run before retrieval. If `STRUCTURAL_DRIFT` or `DESC_STALE` nodes exist, the status is surfaced here so the caller knows the index may not be fully current. Individual `confidence` fields on each hit and expanded node give finer-grained trust signals.
 
 ### Design Decisions
 
-**Embed `level_1`, return `level_2` for hits.** Level-1 is clean and small — good embedding signal. Level_2 is where the useful contract information lives. The query level flag lets the caller override this for primary hits when they need more or less.
+**Embed `level_1` + `level_2` for code, heading + content for doc sections.** These are the semantic summaries — clean, dense signal. Raw source is excluded.
+
+**Incremental embedding.** Re-embed only when hashes change, piggy-backing on the existing hash-based change detection in `cortex build`.
+
+**Section-length warnings before chunking.** V1 pushes quality upstream by encouraging well-scoped sections. V2 adds a safety net for sections that are legitimately long.
 
 **Expanded nodes are always `level_2`.** Expanded context is supporting material. It should be readable and informative but not so deep it dominates the context window. Full source (level_3) is never returned automatically — the `level_3_location` pointer is included so the agent can fetch it explicitly if needed.
 
