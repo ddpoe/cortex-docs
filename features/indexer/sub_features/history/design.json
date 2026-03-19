@@ -31,7 +31,7 @@
     {
       "id": "verification-plan",
       "heading": "Technical Verification",
-      "content": "- Change code only → CODE_ONLY row inserted\n- Change docstring only → DESC_ONLY row inserted\n- Change both → CODE_AND_DESC row inserted\n- No change → no history row (skip)\n- Checkpoint with --no-prune → CHECKPOINT row added, no rows deleted\n- Checkpoint with --keep 5 → oldest rows beyond 5 deleted, verifications preserved\n- Stale window annotation correctly identifies the first CODE_ONLY after the last desc update",
+      "content": "- Change code only → CONTENT_ONLY row inserted\n- Change docstring only → DESC_ONLY row inserted\n- Change both → CONTENT_AND_DESC row inserted\n- No change → no history row (skip)\n- Checkpoint → CHECKPOINT row added (preserved=1), no rows deleted\n- Stale window annotation correctly identifies the first CONTENT_ONLY after the last desc update\n- record_staleness fires BECAME_* transition events when staleness status changes\n- LINK_ADDED / LINK_REMOVED recorded on edge creation/deletion\n- cortex report returns categorized history since a reference point\n- cortex_diff returns old vs new source sliced to node's line range, with fallback baseline resolution",
       "level": 2
     }
   ]
