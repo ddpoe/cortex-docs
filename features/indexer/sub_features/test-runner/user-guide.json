@@ -1,11 +1,17 @@
 {
   "title": "User Guide: Test Runner",
-  "tags": ["user-guide", "v1", "indexer", "test-runner"],
+  "tags": [
+    "user-guide",
+    "v1",
+    "indexer",
+    "test-runner",
+    "deprecated"
+  ],
   "sections": [
     {
       "id": "overview",
       "heading": "Overview",
-      "content": "The cortex test runner executes pytest and records results in the index database, mapping each test to the production code it validates. This enables scoped test runs (\"run only the tests that cover this function\") and test status in the viz dashboard.",
+      "content": "> **DEPRECATED:** The test runner and test dashboard execution/results features are deprecated. The viz test tab is being simplified to test discovery and annotation visibility only — showing test functions, their tier classification, purpose strings, step narratives, and validates edges. Pass/fail badges, JUnit ingestion, the Run Tests button, and test run history are being removed. Test execution belongs in the terminal.\n\nThe cortex test runner executes pytest and records results in the index database, mapping each test to the production code it validates. This enables scoped test runs (\"run only the tests that cover this function\") and test status in the viz dashboard.",
       "level": 2
     },
     {

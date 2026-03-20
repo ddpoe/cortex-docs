@@ -1,0 +1,72 @@
+{
+  "title": "ADR-012: PEV Agent System — Claude Code Native Implementation",
+  "tags": [
+    "adr",
+    "pev",
+    "agent",
+    "superpowers"
+  ],
+  "sections": [
+    {
+      "id": "context",
+      "heading": "Context",
+      "content": "The PEV (Planning → Execution → Validation) agent system was originally designed around LangGraph with Anthropic API and checkpoint DB dependencies. Claude Code now provides native primitives — agent definitions with `tools` + `hooks` frontmatter, skills, subagents, and worktree isolation — that make LangGraph unnecessary. Superpowers provides workflow discipline (brainstorming, TDD, code review) that PEV phases can reference as sub-skills.",
+      "links": [
+        {
+          "node_id": "cortex::docs.features.pev-agent-system.prd"
+        },
+        {
+          "node_id": "cortex::docs.features.pev-agent-system.design"
+        }
+      ]
+    },
+    {
+      "id": "decision",
+      "heading": "Decision",
+      "content": "Implement PEV as Claude Code agent definitions + skills + Superpowers integration. Three agents (`pev-architect`, `pev-builder`, `pev-auditor`) with two-layer deterministic tool enforcement (Layer 1: `tools:` allowlist strips unauthorized tools at runtime; Layer 2: per-agent `hooks:` PreToolUse exits 2 as defense in depth). One orchestrator skill (`/pev`) chains phases with human approval gates.\n\n**Key decisions:**\n\n1. **Two-layer deterministic enforcement** — No tool restriction relies on prompt instructions alone.\n2. **Architect has doc-write tools** — Updates feature docs to target state + creates changelog entry. Cannot write code (Edit/Write/Bash blocked by hooks).\n3. **Builder runs in isolated worktree** — Avoids collisions with other sessions. Does NOT commit. Orchestrator merges worktree after human approval.\n4. **Auditor reviews all stale nodes** — Marks clean if agrees, sends back to Builder if not. Stale ≠ broken. Has `cortex_source` to read code for judgment, but cannot modify code.\n5. **Commit at the end** — One commit after all phases complete and human approves. Code + docs + changelog together.\n6. **Feature docs are ground truth** — PRDs and design specs are living docs updated in place. Changelog entries are the plan for scoped changes. ADRs for cross-cutting changes.\n7. **Merge conflicts surfaced, never auto-resolved** — If worktree merge conflicts, the user decides."
+    },
+    {
+      "id": "architecture",
+      "heading": "Architecture Summary",
+      "content": "```\nUser request\n  → Architect (doc-write, no code) → scope decision → update feature docs + changelog\n    → Architect validation (lightweight reviewer, max 2 loops)\n    → Human gate\n  → Builder (code-write, doc-read, worktree) → implement → TDD → manifest\n    → Worktree merge (surface conflicts, never auto-resolve)\n    → cortex_build + graph dependency check\n    → Human gate\n  → Auditor (doc-write, code-read, mark_clean) → review stale → update docs → impact report\n    → needs_fix? → Builder loopback (worktree, max 2x) → Auditor re-check\n    → Human gate\n  → Commit (one commit, everything together)\n  → superpowers:finishing-a-development-branch\n```\n\n| Phase | Agent Def | Worktree | Can Write Code | Can Write Docs | Can mark_clean |\n|---|---|---|---|---|---|\n| Architect | pev-architect | No | No | Yes | No |\n| Builder | pev-builder | Yes | Yes | No | No |\n| Auditor | pev-auditor | No | No | Yes | Yes |"
+    },
+    {
+      "id": "implementation-plan",
+      "heading": "Implementation Plan",
+      "content": "The detailed implementation plan with step-by-step tasks lives in the plan document. Each task is linked below.\n\n| Task | Description | Plan Section |\n|---|---|---|\n| Task 1 | Create pev-architect agent + skill | See link |\n| Task 2 | Create pev-builder agent + skill (worktree) | See link |\n| Task 3 | Create pev-auditor agent + skill | See link |\n| Task 4 | Create pev orchestrator skill | See link |\n| Task 5 | Hooks evaluation (V1: none needed) | See link |\n| Task 6 | Skill testing (TDD pressure tests) | See link |\n| Task 7 | Update PEV feature docs + changelog | See link |",
+      "links": [
+        {
+          "node_id": "cortex::docs.plans.pev-superpowers-integration::task-1"
+        },
+        {
+          "node_id": "cortex::docs.plans.pev-superpowers-integration::task-2"
+        },
+        {
+          "node_id": "cortex::docs.plans.pev-superpowers-integration::task-3"
+        },
+        {
+          "node_id": "cortex::docs.plans.pev-superpowers-integration::task-4"
+        },
+        {
+          "node_id": "cortex::docs.plans.pev-superpowers-integration::task-5"
+        },
+        {
+          "node_id": "cortex::docs.plans.pev-superpowers-integration::task-6"
+        },
+        {
+          "node_id": "cortex::docs.plans.pev-superpowers-integration::task-7"
+        }
+      ]
+    },
+    {
+      "id": "status",
+      "heading": "Status",
+      "content": "**Proposed.** Plan drafted and reviewed. Not yet implemented. Blocked on ADR-010 (nested DocJSON sections) completing first — PEV plan doc itself would benefit from section nesting."
+    },
+    {
+      "id": "consequences",
+      "heading": "Consequences",
+      "content": "**Gains:**\n- Zero external dependencies (no LangGraph, no Anthropic API, no checkpoint DB)\n- Deterministic tool enforcement via hooks (not prompt persuasion)\n- Native integration with Superpowers workflow skills\n- Worktree isolation prevents Builder collisions\n- Single end-of-cycle commit ensures nothing is half-committed\n\n**Loses:**\n- No programmatic checkpoint/resume across process restarts\n- No conditional routing outside of skill prompts (all orchestration is in SKILL.md)\n- Changelog-driven planning requires discipline in entry structure\n\n**Risks:**\n- Agent `tools:` frontmatter enforcement needs verification (is it truly runtime-enforced or advisory?)\n- Large PEV sessions may hit context limits across subagent dispatches\n- Auditor's stale-node review could be slow on large changesets"
+    }
+  ]
+}

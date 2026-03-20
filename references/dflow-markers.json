@@ -1,0 +1,43 @@
+{
+  "title": "dFlow Marker Syntax Reference",
+  "tags": [
+    "reference",
+    "dflow",
+    "workflow"
+  ],
+  "sections": [
+    {
+      "id": "core-rule",
+      "heading": "Core Rule",
+      "content": "**Minor step numbers (e.g. `6.1`, `3.2`) can ONLY appear inside loops — regardless of whether they are on a `Step` or `AutoStep`.** This is the single overarching constraint. Major step numbers (integers) can appear anywhere. Everything else follows from this.\n\nThese rules are enforced by the dFlow registry at import time — violations cause `RegistryValidationError`."
+    },
+    {
+      "id": "decorators",
+      "heading": "Decorators",
+      "content": "### @workflow\nMarks an orchestration function that coordinates multiple steps and may delegate to `@task` functions.\n\n```python\n@workflow(\n    purpose=\"Short description of what this workflow does\",\n    inputs=\"description of inputs\",\n    outputs=\"description of outputs\",\n)\ndef build(project_root: Path) -> dict:\n```\n\n- Should contain step markers to document the workflow's phases (but not strictly required).\n- Can use any mix of `Step` and `AutoStep` markers.\n\n### @task\nMarks a leaf function that performs a discrete unit of work.\n\n```python\n@task(\n    purpose=\"Short description of what this task does\",\n    inputs=\"description of inputs\",\n    outputs=\"description of outputs\",\n)\ndef delete_doc_by_id(conn, doc_id) -> None:\n```\n\n- Does not require step markers (but can have them for documenting phases).\n- Can contain `Step` or `AutoStep` markers, including minor steps inside loops.",
+      "links": [
+        {
+          "node_id": "cortex::cortex.index.builder::build"
+        },
+        {
+          "node_id": "cortex::cortex.index.db::delete_doc_by_id"
+        }
+      ]
+    },
+    {
+      "id": "step-markers",
+      "heading": "Step Markers",
+      "content": "Both `Step` and `AutoStep` use the same numbering rules:\n\n- **Major step number** (integer: 1, 2, 3, …) — can appear anywhere in the function body.\n- **Minor step number** (float: 3.1, 7.2, …) — **ONLY inside `for` loops.** The integer part is the parent step number; the decimal part is the iteration sub-step.\n\n### Step(step_num=N)\nMarks a sequential phase. Typically used for phases that contain inline logic.\n\n```python\n口 = Step(step_num=1, name=\"Resolve config\",\n         purpose=\"Load cortex.toml and determine project_id\")\n```\n\n- `step_num`: integer or float (minor only inside loops).\n- `name`: short label for the step.\n- `purpose`: (optional) what this step accomplishes.\n- `inputs`: (optional) what this step reads.\n- `outputs`: (optional) what this step produces.\n- `critical`: (optional) important constraints or invariants.\n\n### AutoStep(step_num=N)\nSame fields as `Step`. Used when the step delegates to a `@task` function — dFlow auto-resolves the `delegates_to` edge.\n\n```python\n口 = AutoStep(step_num=10, name=\"Purge stale entries\")\nnodes_purged = _purge_stale_entries(db_path, project_root, warnings)\n```\n\n- Used when the very next call is to a `@task`-decorated function.\n- dFlow links the AutoStep to the task via a `delegates_to` edge in the workflow DB.\n\n### Minor steps inside loops\n\nBoth `Step` and `AutoStep` can use minor numbering inside loops:\n\n```python\nfor node in all_nodes:\n    口 = AutoStep(step_num=7.1, name=\"Upsert node\")\n    db.upsert_node_conn(conn, node)\n```\n\n```python\nfor edge in all_edges:\n    口 = Step(step_num=7.2, name=\"Validate edge\")\n    if not valid_edge(edge): warnings.append(edge)\n```"
+    },
+    {
+      "id": "common-mistakes",
+      "heading": "Common Mistakes",
+      "content": "| Mistake | Error | Fix |\n|---------|-------|-----|\n| Minor step number (N.M) outside a loop | Invalid — minor steps are iteration markers | Use a major step number (integer) outside loops, or move the step inside the loop |\n| Calling a `@task` from a `Step` instead of `AutoStep` | Works but dFlow won't auto-resolve the delegation edge | Change to `AutoStep(N)` when the step's sole purpose is delegating to a task |"
+    },
+    {
+      "id": "pattern-summary",
+      "heading": "Pattern Summary",
+      "content": "```\n@workflow\n  Step(1)        — sequential phase\n  Step(2)        — sequential phase\n  Step(3)        — sequential phase\n    for item in items:\n      AutoStep(3.1)  — per-iteration (minor step, loop only)\n      some_task(item)\n  AutoStep(4)    — delegates to @task\n  _my_task(args)\n\n@task\n  Step(1)        — first phase (optional)\n  for row in rows:\n    Step(1.1)      — per-iteration (minor step, loop only)\n    process(row)\n```"
+    }
+  ]
+}

@@ -1,11 +1,17 @@
 {
   "title": "Design Spec: Test Runner",
-  "tags": ["design", "v1", "indexer", "test-runner"],
+  "tags": [
+    "design",
+    "v1",
+    "indexer",
+    "test-runner",
+    "deprecated"
+  ],
   "sections": [
     {
       "id": "architecture",
       "heading": "Architecture Overview",
-      "content": "The test runner integrates pytest execution with the cortex knowledge graph. It runs tests, parses results, maps them to cortex nodes via `validates` edges, and stores everything in the `test_runs` / `test_results` tables.\n\n```\ncortex/index/\n  runner.py         # detect_runner(): finds pytest via pixi/poetry/plain\n                    # json_report_available(): checks for pytest-json-report plugin\n                    # get_git_sha(): captures current git commit\n  junit_parser.py   # parse_junit_xml(): parses JUnit XML output\n                    # parse_json_report(): parses pytest-json-report JSON\n  test_mapper.py    # map_results_to_nodes(): resolves pytest IDs → cortex node IDs\n                    # via 'validates' edges in the graph\n```\n\nReport format priority: pytest-json-report (richer data) → JUnit XML (universal fallback). The report file is written to `.cortex/_run.json` or `.cortex/_run.xml` and deleted after parsing.",
+      "content": "> **DEPRECATED:** The test runner and test dashboard execution/results features are deprecated. The viz test tab is being simplified to test discovery and annotation visibility only — showing test functions, their tier classification, purpose strings, step narratives, and validates edges. Pass/fail badges, JUnit ingestion, the Run Tests button, and test run history are being removed. Test execution belongs in the terminal.\n\nThe test runner integrates pytest execution with the cortex knowledge graph. It runs tests, parses results, maps them to cortex nodes via `validates` edges, and stores everything in the `test_runs` / `test_results` tables.\n\n```\ncortex/index/\n  runner.py         # detect_runner(): finds pytest via pixi/poetry/plain\n                    # json_report_available(): checks for pytest-json-report plugin\n                    # get_git_sha(): captures current git commit\n  junit_parser.py   # parse_junit_xml(): parses JUnit XML output\n                    # parse_json_report(): parses pytest-json-report JSON\n  test_mapper.py    # map_results_to_nodes(): resolves pytest IDs → cortex node IDs\n                    # via 'validates' edges in the graph\n```\n\nReport format priority: pytest-json-report (richer data) → JUnit XML (universal fallback). The report file is written to `.cortex/_run.json` or `.cortex/_run.xml` and deleted after parsing.",
       "level": 2
     },
     {
@@ -19,7 +25,9 @@
       "heading": "Implementation Trade-offs",
       "content": "### pytest-json-report preferred over JUnit XML\nJSON report provides richer data (setup/teardown timing, captured output, markers). JUnit XML is the universal fallback when the plugin isn't installed.\n\n### Subprocess execution, not in-process pytest\nRunning pytest as a subprocess isolates the test environment from cortex's own imports. It also respects the project's runner (pixi, poetry, conda).\n\n### Unmapped tests are recorded but flagged\nTests that can't be mapped to a cortex node (no `validates` edge) are still recorded in `test_results` with `node_id=NULL`. The summary output lists them to prompt the user to add `cortex link` edges.",
       "level": 2,
-      "tags": ["decisions"]
+      "tags": [
+        "decisions"
+      ]
     },
     {
       "id": "verification-plan",

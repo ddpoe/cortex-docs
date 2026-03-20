@@ -1,0 +1,60 @@
+{
+  "title": "ADR-011: SQLite Concurrency Resilience",
+  "tags": [
+    "adr",
+    "sqlite",
+    "concurrency",
+    "reliability"
+  ],
+  "sections": [
+    {
+      "id": "status",
+      "heading": "Status",
+      "content": "**Status:** Accepted\n\n**Date:** 2026-03-20\n\n**Decider:** Dante",
+      "level": 2
+    },
+    {
+      "id": "context",
+      "heading": "Context & Problem Statement",
+      "content": "SQLite write operations silently fail or produce corrupt state when multiple writers contend for the database. This happens in practice when:\n\n- Viz \"Check\" button is clicked while a CLI `cortex build` is running\n- Two terminal sessions both run `cortex check`\n- MCP tool calls from an agent fire in parallel (e.g., multiple `cortex_update_section` calls)\n- An agent is working while the user clicks around in viz\n\nThree compounding problems:\n\n**1. No write-ahead logging.** SQLite defaults to rollback journal mode. A writer blocks all readers and vice versa. Viz reads (`/api/all`) block during a build, and builds block during viz reads.\n\n**2. No connection timeout.** Python's `sqlite3.connect()` defaults to `timeout=5` but cortex's `_connect()` may not pass this through consistently. When a lock can't be acquired, `sqlite3.OperationalError: database is locked` is raised immediately.\n\n**3. Silent error swallowing in MCP tools.** Most MCP tool functions wrap their body in `try/except Exception` and return `f\"ERROR: {exc}\"` as a normal string response. The agent sees a string — not a structured error — and may not notice the failure. Worse, `cortex_update_section` writes the JSON file BEFORE re-indexing, so the file is correct but the index is stale. The tool reports success for the file write even if the re-index failed.\n\n**4. Read-modify-write races on JSON files.** `cortex_update_section` reads a JSON file, modifies a section, and writes it back. Two concurrent calls on the same file can clobber each other — call A reads, call B reads, A writes, B writes (overwriting A's changes). Both report success.",
+      "level": 2,
+      "links": [
+        {
+          "node_id": "cortex::cortex.index.db"
+        },
+        {
+          "node_id": "cortex::cortex.mcp_server::cortex_update_section"
+        }
+      ]
+    },
+    {
+      "id": "decision",
+      "heading": "The Decision",
+      "content": "Three changes, applied together:\n\n### 1. WAL mode\n\nEnable Write-Ahead Logging on every connection:\n\n```python\nconn.execute(\"PRAGMA journal_mode=WAL\")\n```\n\nWAL allows concurrent reads during writes and writes during reads. Only one writer at a time, but readers never block. This makes viz reads (`/api/all`, rendering, graph queries) instant even during a build.\n\n### 2. Connection timeout\n\nPass `timeout=5` to `sqlite3.connect()` in `_connect()`:\n\n```python\nconn = sqlite3.connect(db_path, timeout=5)\n```\n\nWhen a second writer tries to acquire the lock, it waits up to 5 seconds instead of failing immediately. This handles the common case where two short operations overlap.\n\n### 3. Structured error reporting in MCP tools\n\nReplace `return f\"ERROR: {exc}\"` with raised exceptions so the MCP framework returns them as tool errors (not success responses with error text). FastMCP propagates exceptions as structured error responses that agents recognize as failures.\n\nFor `cortex_update_section` specifically: wrap the read-modify-write-reindex sequence in a file lock so concurrent calls on the same JSON file are serialized. Use `fcntl.flock` on Unix and `msvcrt.locking` on Windows (or a cross-platform lockfile library).",
+      "level": 2,
+      "links": [
+        {
+          "node_id": "cortex::cortex.index.db::_connect"
+        },
+        {
+          "node_id": "cortex::cortex.mcp_server::cortex_update_section"
+        },
+        {
+          "node_id": "cortex::cortex.mcp_server::cortex_write_doc"
+        }
+      ]
+    },
+    {
+      "id": "consequences",
+      "heading": "Consequences",
+      "content": "**Positive:**\n- Viz reads never block during builds (WAL)\n- Concurrent writes wait instead of immediately failing (timeout)\n- Agents get structured errors and can decide to retry or report (error handling)\n- Read-modify-write races on JSON files eliminated (file locking)\n- No more silent index staleness from failed re-index steps\n\n**Negative:**\n- WAL creates a `-wal` and `-shm` file alongside the DB (normal, cleaned up on clean shutdown)\n- WAL file can grow if a long-running reader holds a checkpoint open (mitigated by SQLite's auto-checkpoint at 1000 pages)\n- File locking adds platform-specific code (Unix vs Windows)\n- 5-second timeout means a second build blocks for up to 5s before succeeding — if the first build takes >5s, the second still fails (but with a clear error now, not silently)\n\n**Neutral:**\n- WAL mode is persistent per database — set once, survives reconnections\n- No schema changes required\n- No changes to the data model or staleness engine\n- `_connect()` is the single place to add both WAL and timeout",
+      "level": 2
+    },
+    {
+      "id": "implementation-order",
+      "heading": "Implementation Order",
+      "content": "**Step 1 — WAL + timeout in `_connect()`** — **Done**\n- Added `timeout=5` to `sqlite3.connect()` call\n- Added `PRAGMA journal_mode=WAL` after connection\n- Applied in `cortex/index/db.py::_connect()` (the central connection path)\n- Also applied to all direct `sqlite3.connect()` sites: `viz/server.py::_connect()`, `viz/server.py::_dflow_connect()`, `mcp_server.py::cortex_sql()`, `diff.py::get_doc_diff()`, `builder.py::_materialize_dflow_covers()`, `scanners/module_scanner.py::_read_dflow_edges()`\n\n**Step 2 — Structured MCP errors** — **Done**\n- Converted 19 `except Exception: return f\"ERROR: {exc}\"` patterns to `except Exception: raise`\n- FastMCP propagates raised exceptions as structured error responses that agents recognize as failures\n- Input validation errors (e.g. \"Node not found\", \"level must be 0-3\") still return `\"ERROR: ...\"` strings — these are expected user errors, not unexpected failures\n- Added `stdin=subprocess.DEVNULL` to all `subprocess.run` calls across `diff.py`, `runner.py`, `viz/server.py`, and `cli.py` to prevent MCP stdio deadlocks\n\n**Step 3 — File locking for read-modify-write** — **Deferred**\n- Not yet implemented. The read-modify-write race on JSON files in `cortex_update_section` and `cortex_add_link` is not yet addressed.\n- Will require a cross-platform locking utility (`fcntl` on Unix, `msvcrt` on Windows, or a lockfile library).\n\n**Step 4 — Tests** — **Partial**\n- Connection-layer tests added in `tests/test_sqlite_connection.py`: WAL mode, timeout wait behavior, foreign keys, rollback on exception\n- MCP structured error tests: verifies tools raise on unexpected errors, input validation returns ERROR strings\n- Concurrency integration tests (concurrent writes, file locking serialization) deferred with Step 3",
+      "level": 2
+    }
+  ]
+}

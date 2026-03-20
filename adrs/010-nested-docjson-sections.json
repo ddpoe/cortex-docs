@@ -1,0 +1,105 @@
+{
+  "title": "ADR-010: Nested DocJSON Sections",
+  "tags": [
+    "adr",
+    "docjson",
+    "nested-sections",
+    "architecture"
+  ],
+  "sections": [
+    {
+      "id": "status",
+      "heading": "Status",
+      "content": "**Status:** Accepted\n\n**Date:** 2026-03-20\n\n**Decider:** Dante",
+      "level": 2
+    },
+    {
+      "id": "context",
+      "heading": "Context & Problem Statement",
+      "content": "DocJSON sections are currently a flat array. Large sections become hard to parse, change, and add to. The only option is to split into a separate document, which fragments related content. There is no way to structurally group sub-topics within a section — the `level` field controls heading depth in rendered output but carries no containment semantics.\n\nAdditionally, the staleness model has no concept of parent-child relationships between sections. When code changes affect a deeply nested topic, there's no way to signal \"something inside this section changed\" without marking the parent section itself as stale.\n\nThe doc manager UI renders sections as a flat list with no hierarchy, making long documents hard to navigate.",
+      "level": 2
+    },
+    {
+      "id": "decision",
+      "heading": "The Decision",
+      "content": "### Recursive `sections` arrays in JSON\n\nEach section object gains an optional `sections` key containing child sections. Maximum depth is 3 levels (depth 0, 1, 2). The format is a strict superset of the current format — existing documents work with zero changes.\n\n```json\n{\n  \"id\": \"database-layer\",\n  \"heading\": \"Database Layer\",\n  \"content\": \"Overview.\",\n  \"sections\": [\n    {\"id\": \"tables\", \"heading\": \"Tables\", \"content\": \"...\"},\n    {\"id\": \"migrations\", \"heading\": \"Migrations\", \"content\": \"...\"}\n  ]\n}\n```\n\n### Dot-path node IDs\n\nNested sections use dot-separated paths after the `::` separator: `doc_id::parent.child.grandchild`. This is consistent with how cortex handles hierarchical code nodes (module.class.method).\n\n### Scanner: flat loop → recursive walk\n\nThe scanner (`json_doc_scanner.py`) recurses into child sections, building dot-path IDs, emitting `composes` edges from parent section → child section, and enforcing the depth limit (warn + skip beyond depth 2).\n\n### DB: `parent_id` and `depth` columns\n\nThe `doc_sections` table gains two columns. The scanner flattens the tree into rows. `position` is scoped to siblings within the same parent.\n\n```sql\nALTER TABLE doc_sections ADD COLUMN parent_id TEXT;  -- NULL = top-level\nALTER TABLE doc_sections ADD COLUMN depth INTEGER NOT NULL DEFAULT 0;\n```\n\n### Staleness: LINKED_STALE for parent sections\n\nParent sections are `atomic_process` (they have own content, hashes, staleness). They do NOT inherit worst-child status like `composite_process` nodes. Instead, `apply_composite_inheritance` applies `LINKED_STALE` when any child is non-CLEAN, and takes `max(own_status, LINKED_STALE)` to preserve own staleness.\n\nChain: grandchild `DESC_STALE` → child `LINKED_STALE` → parent `LINKED_STALE` → doc file inherits `LINKED_STALE` (composite inheritance).\n\n### Viz: indented collapsible sections\n\nParent sections render with collapse/expand toggles, visual indentation with left border lines, and a summary when collapsed (\"N sub-sections\"). Sub-sections appear indented in the TOC. \"Add Sub-section\" button per parent, hidden at depth 2.\n\n### List view: hierarchical focus traversal\n\nThe source panel's binary Focus toggle is replaced with Up/Down navigation for docjson nodes. Up zooms out to parent section or full doc. Down zooms into first child. No lateral movement.\n\n### MCP tools\n\n`cortex_update_section` gains recursive tree traversal for dot-path section IDs. `cortex_write_doc` gains depth validation (reject > 3 levels).",
+      "level": 2,
+      "links": [
+        {
+          "node_id": "cortex::cortex.scanners.json_doc_scanner::scan_single_json_doc"
+        },
+        {
+          "node_id": "cortex::cortex.index.staleness::apply_composite_inheritance"
+        },
+        {
+          "node_id": "cortex::cortex.index.staleness::compute_staleness"
+        },
+        {
+          "node_id": "cortex::cortex.index.staleness::_get_linked_stale_ids"
+        },
+        {
+          "node_id": "cortex::cortex.mcp_server::cortex_update_section"
+        },
+        {
+          "node_id": "cortex::cortex.mcp_server::cortex_write_doc"
+        },
+        {
+          "node_id": "cortex::cortex.index.db::upsert_doc_section"
+        },
+        {
+          "node_id": "cortex::cortex.index.db::get_stale_doc_sections"
+        }
+      ]
+    },
+    {
+      "id": "affected-docs",
+      "heading": "Affected Documentation",
+      "content": "This ADR serves as the hub for all docs updated for nested sections. An agent implementing this feature should read all linked docs below.\n\n### PRDs (user stories + capabilities)\n\n| Doc | What changed |\n|---|---|\n| Doc Manager PRD | US-DM-07 (nested sections), US-DM-08 (add sub-sections), US-DM-09 (TOC hierarchy) + 5 capability rows |\n| List View PRD | US-LV-18 (hierarchical focus traversal) + 1 capability row |\n| Staleness PRD | US-ST-07 (LINKED_STALE for parent sections) + 2 capability rows |\n| Scanning PRD | US-SC-16 (recursive section scanning) + 4 capability rows |\n\n### Design Specs\n\n| Doc | What changed |\n|---|---|\n| Doc Manager Design | New `nested-sections` section. Updated sequence diagram + verification plan. |\n| List View Design | New `hierarchical-focus` section (Up/Down nav, breadcrumb). |\n| Staleness Design | Updated `architecture` with atomic-parent LINKED_STALE rules. Updated `sequence-diagram` with node-type-aware composite inheritance. |\n\n### Interfaces\n\n| Doc | What changed |\n|---|---|\n| Data Model | `doc_sections` table: `parent_id` + `depth` columns in schema, DDL, ER diagram. New nested query patterns. |\n| MCP Tools | `cortex_update_section`: dot-path tree traversal. `cortex_write_doc`: depth validation. |\n| DocJSON Guide | New `nested-sections` section (format, depth limits, node IDs, backward compat, staleness). |",
+      "level": 2,
+      "links": [
+        {
+          "node_id": "cortex::docs.features.viz.sub_features.doc-manager.prd"
+        },
+        {
+          "node_id": "cortex::docs.features.viz.sub_features.doc-manager.design"
+        },
+        {
+          "node_id": "cortex::docs.features.viz.sub_features.list-view.prd"
+        },
+        {
+          "node_id": "cortex::docs.features.viz.sub_features.list-view.design"
+        },
+        {
+          "node_id": "cortex::docs.features.indexer.sub_features.staleness.prd"
+        },
+        {
+          "node_id": "cortex::docs.features.indexer.sub_features.staleness.design"
+        },
+        {
+          "node_id": "cortex::docs.features.indexer.sub_features.scanning.prd"
+        },
+        {
+          "node_id": "cortex::docs.features.indexer.interfaces.data-model"
+        },
+        {
+          "node_id": "cortex::docs.features.mcp-server.interfaces.tools"
+        },
+        {
+          "node_id": "cortex::docs.docjson-guide"
+        }
+      ]
+    },
+    {
+      "id": "consequences",
+      "heading": "Consequences",
+      "content": "**Positive:**\n- Large sections can be broken into focused, addressable sub-sections without fragmenting into separate documents\n- Structural containment is visible in the JSON format, node IDs, graph edges, and viz UI\n- Staleness propagation uses existing `LINKED_STALE` vocabulary — no new staleness cause needed\n- Fully backward compatible — existing documents work unchanged\n- `apply_composite_inheritance` topo sort already handles multi-level propagation; change is targeted (node-type awareness)\n\n**Negative:**\n- Scanner gains recursion (small complexity increase)\n- `cortex_update_section` needs tree traversal instead of flat array search\n- `apply_composite_inheritance` needs to distinguish `atomic_process` parents (LINKED_STALE) from `composite_process` parents (inherit worst child) — requires node_type lookup\n- DB migration needed: `parent_id` and `depth` columns on `doc_sections` (or re-init)\n\n**Neutral:**\n- Depth limit of 3 levels is enforced, not configurable. Deeper nesting signals a need to split documents.\n- `_get_linked_stale_ids` is untouched — composes-based propagation is handled in `apply_composite_inheritance` (step 4), not the linked stale pass (step 3)\n- Heading `level` auto-derives from depth but explicit `level` overrides still work",
+      "level": 2
+    },
+    {
+      "id": "implementation-order",
+      "heading": "Implementation Order",
+      "content": "**Layer 1 — Schema**\n- Add `parent_id TEXT` and `depth INTEGER NOT NULL DEFAULT 0` to `doc_sections` table in `db.py`\n- Re-init required (or ALTER TABLE migration)\n\n**Layer 2 — Scanner**\n- Recursive `_walk_sections()` in `json_doc_scanner.py`\n- Dot-path node IDs, `composes` edges parent→child, depth enforcement\n- `position` scoped to siblings within same parent\n\n**Layer 3 — Staleness**\n- `apply_composite_inheritance`: node-type awareness — `atomic_process` parents get `LINKED_STALE` (max with own), `composite_process` parents inherit worst child\n- No changes to `_get_linked_stale_ids` or `get_stale_doc_sections`\n\n**Layer 4 — MCP tools**\n- `cortex_update_section`: recursive tree find for dot-path section IDs\n- `cortex_write_doc`: depth validation (reject > 3 levels)\n- `cortex_read_doc`: render nested sections with indented headings\n\n**Layer 5 — Viz backend**\n- `/api/docs/{id}/render`: include `parent_id` and `depth` in section metadata\n- `/api/docs/{id}` PUT: no change needed (receives full JSON tree)\n\n**Layer 6 — Viz frontend (doc manager)**\n- Indented collapsible section rendering with left border lines\n- Collapse/expand toggles, persisted in sessionStorage\n- \"Add Sub-section\" button per parent (hidden at depth 2)\n- Sub-sections in TOC (indented)\n- Drag reorder within same parent only\n\n**Layer 7 — Viz frontend (list view)**\n- Up/Down hierarchical focus traversal for docjson nodes\n- Breadcrumb trail showing position in hierarchy\n- Non-docjson nodes keep existing Focus toggle\n\n**Prerequisite:** ADR-011 (SQLite Concurrency Resilience) — WAL mode, connection timeout, and structured MCP error reporting should be implemented first to prevent silent failures during parallel development.",
+      "level": 2
+    }
+  ]
+}

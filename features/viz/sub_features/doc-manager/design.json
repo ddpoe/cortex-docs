@@ -1,6 +1,11 @@
 {
   "title": "Design Spec: Doc Manager",
-  "tags": ["design", "v1", "viz", "doc-manager"],
+  "tags": [
+    "design",
+    "v1",
+    "viz",
+    "doc-manager"
+  ],
   "sections": [
     {
       "id": "architecture",
@@ -11,7 +16,13 @@
     {
       "id": "sequence-diagram",
       "heading": "Key Interactions",
-      "content": "### Open Document\n```\nUser clicks doc in folder tree:\n  1. GET /api/docs/{id}/render \u2192 rendered markdown + section data\n  2. GET /api/docs/{id}/raw \u2192 raw JSON (for editing)\n  3. Render content area: rendered markdown view\n  4. Build TOC from sections\n  5. Mark _dirty = false\n```\n\n### Edit Section\n```\nUser clicks edit icon on a section:\n  1. Replace rendered HTML with <textarea> containing raw content\n  2. Auto-resize textarea\n  3. On blur or save: update _rawDoc.sections[idx].content\n  4. Mark _dirty = true\n  5. Re-render that section only (optimistic)\n```\n\n### Save Document\n```\nUser clicks Save button (appears when _dirty=true):\n  PUT /api/docs/{id}  body: _rawDoc (full JSON)\n  Mark _dirty = false\n  Re-fetch rendered view\n```\n\n### Link Picker\n```\nUser clicks link icon on a section:\n  Open search overlay\n  User types partial node ID or name\n  GET /api/search?q=...  \u2192  results\n  User clicks a result \u2192 add to section.links[]\n  Mark _dirty = true\n```",
+      "content": "### Open Document\n```\nUser clicks doc in folder tree:\n  1. GET /api/docs/{id}/render → rendered markdown + section data\n  2. GET /api/docs/{id}/raw → raw JSON (for editing)\n  3. Render content area: rendered markdown view\n  4. Build TOC from sections (including nested sub-sections, indented)\n  5. Mark _dirty = false\n```\n\n### Edit Section\n```\nUser clicks edit icon on a section (any depth):\n  1. Replace rendered HTML with <textarea> containing raw content\n  2. Auto-resize textarea\n  3. On blur or save: update _rawDoc section content (walk tree by depth path)\n  4. Mark _dirty = true\n  5. Re-render that section only (optimistic)\n```\n\n### Save Document\n```\nUser clicks Save button (appears when _dirty=true):\n  PUT /api/docs/{id}  body: _rawDoc (full JSON tree — no reconstruction needed)\n  Mark _dirty = false\n  Re-fetch rendered view\n```\n\n### Link Picker\n```\nUser clicks link icon on a section (any depth):\n  Open search overlay\n  User types partial node ID or name\n  GET /api/search?q=...  →  results\n  User clicks a result → add to section.links[]\n  Mark _dirty = true\n```\n\n### Add Sub-section\n```\nUser clicks \"Add Sub-section\" on a parent section:\n  1. Validate depth < 2 (max depth)\n  2. Create new section object: {id: auto-slug, heading: \"New Section\", content: \"\"}\n  3. Append to parent's sections[] array in _rawDoc\n  4. Mark _dirty = true\n  5. Re-render: new section appears indented under parent\n  6. Auto-open heading edit on new section\n```\n\n### Collapse/Expand Section\n```\nUser clicks ▼/▶ toggle on a parent section:\n  1. Toggle collapsed state in Set (sessionStorage-persisted)\n  2. Hide/show child section DOM elements\n  3. Update TOC: hide/show indented child entries\n  4. Collapsed header shows \"N sub-sections\" summary\n```",
+      "level": 2
+    },
+    {
+      "id": "nested-sections",
+      "heading": "Nested Sections",
+      "content": "Sections can recursively contain sub-sections via an optional `sections` array, up to 3 levels deep (depth 0, 1, 2).\n\n**Rendering:**\n- Parent sections render with a collapse/expand toggle (▼/▶) in the section header\n- Children are visually indented under their parent with a left border line\n- Each depth level gets progressively smaller headings: `##` → `###` → `####`\n- Collapsed parents show a summary: \"N sub-sections\" (with stale count if applicable)\n\n**TOC integration:**\n- Sub-sections appear indented in the right-side TOC, mirroring the document tree\n- The existing `IntersectionObserver` for scroll tracking extends to nested sections\n- TOC items at each depth get left-padding proportional to their level\n\n**Section management:**\n- Each parent section shows an \"Add Sub-section\" button (hidden at depth 2 — max depth)\n- \"Add Section\" at the bottom of the document adds top-level sections (unchanged)\n- Drag reorder is scoped to siblings within the same parent — you cannot drag a child out to become a top-level section\n- Remove section on a parent removes all its children (with confirmation)\n\n**Data flow:**\n- `_rawDoc` already contains the tree structure (recursive `sections` arrays in JSON) — no reconstruction needed on save\n- `_renderedData.sections` from the server is flat with `parent_id` and `depth` — the frontend builds the tree for rendering\n- PUT `/api/docs/{id}` sends the full tree JSON (unchanged from current full-doc save)\n\n**Editing nested sections:**\n- Click-to-edit (Tiptap or textarea) works the same at any depth\n- Link picker, tag management, and Mermaid diagram editor are depth-agnostic\n- Heading inline edit works at any depth",
       "level": 2
     },
     {
@@ -19,12 +30,14 @@
       "heading": "Implementation Trade-offs",
       "content": "### 2500-line monolith\nDocs.js handles rendering, editing, link management, tag management, folder operations, Mermaid editing, and raw view. This is large but avoids the complexity of splitting state across modules when all doc operations share the same `_rawDoc` object.\n\n### Textarea editing vs WYSIWYG\nSection content is edited in a plain textarea rather than a WYSIWYG editor. This keeps the implementation simple and preserves markdown formatting exactly. The Mermaid diagram editor is the exception: it uses Monaco for syntax highlighting with live preview.\n\n### Full JSON save (PUT)\nEvery save sends the entire JSON document rather than section-level patches. This avoids conflict resolution at the cost of slightly larger payloads. For typical DocJSON files (<50KB), this is negligible.",
       "level": 2,
-      "tags": ["decisions"]
+      "tags": [
+        "decisions"
+      ]
     },
     {
       "id": "verification-plan",
       "heading": "Technical Verification",
-      "content": "- Folder tree renders correct hierarchy and persists expand/collapse state\n- Click-to-edit opens textarea with correct content\n- Save writes changes to disk and re-renders correctly\n- Link picker search returns relevant nodes and adds to section.links\n- Tag add/remove updates chips and marks dirty\n- Section add/remove/reorder updates TOC\n- Mermaid diagrams render in preview and update live in Monaco\n- Wide mode toggle persists across page loads\n- Raw JSON toggle shows formatted source",
+      "content": "- Folder tree renders correct hierarchy and persists expand/collapse state\n- Click-to-edit opens textarea with correct content\n- Save writes changes to disk and re-renders correctly\n- Link picker search returns relevant nodes and adds to section.links\n- Tag add/remove updates chips and marks dirty\n- Section add/remove/reorder updates TOC\n- Mermaid diagrams render in preview and update live in Monaco\n- Wide mode toggle persists across page loads\n- Raw JSON toggle shows formatted source\n- Nested sections render with indentation and left border line at each depth\n- Parent sections show collapse/expand toggle (▼/▶)\n- Collapsed parent shows \"N sub-sections\" summary with stale count\n- Sub-sections appear indented in the right-side TOC\n- \"Add Sub-section\" button appears on sections at depth < 2\n- \"Add Sub-section\" button is hidden at depth 2 (max)\n- Removing a parent section removes all children (with confirmation)\n- Drag reorder works within same parent level only\n- `_rawDoc` tree structure round-trips correctly through save/reload",
       "level": 2
     }
   ]

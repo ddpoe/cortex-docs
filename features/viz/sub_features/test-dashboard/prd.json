@@ -4,13 +4,14 @@
     "prd",
     "v1",
     "viz",
-    "test-dashboard"
+    "test-dashboard",
+    "deprecated"
   ],
   "sections": [
     {
       "id": "problem",
       "heading": "Problem Statement",
-      "content": "The test dashboard previously relied on two disjoint data sources: the dFlow DB for T2/T3 tests (via `/api/tests`) and the cortex DB for T1 tests (via `/api/t1_tests`). Tier classification depended on `covers_count` from dFlow's `coverage_links` table, but AST call graph `validates` edges replaced `covers=` as the source of test-to-code linking.\n\nThe dashboard has been migrated to a cortex-native architecture: a unified `/api/tests` endpoint queries cortex DB for test node discovery and dFlow DB (optionally) for tier classification. Test results come from cortex's `test_results` table. A `POST /api/test/run` endpoint triggers test runs from the browser. The `cortex.toml` `[cortex.scan] test_paths` option prevents test functions from appearing in the Workflows tab."
+      "content": "> **DEPRECATED:** The test runner and test dashboard execution/results features are deprecated. The viz test tab is being simplified to test discovery and annotation visibility only — showing test functions, their tier classification, purpose strings, step narratives, and validates edges. Pass/fail badges, JUnit ingestion, the Run Tests button, and test run history are being removed. Test execution belongs in the terminal.\n\nThe test dashboard previously relied on two disjoint data sources: the dFlow DB for T2/T3 tests (via `/api/tests`) and the cortex DB for T1 tests (via `/api/t1_tests`). Tier classification depended on `covers_count` from dFlow's `coverage_links` table, but AST call graph `validates` edges replaced `covers=` as the source of test-to-code linking.\n\nThe dashboard has been migrated to a cortex-native architecture: a unified `/api/tests` endpoint queries cortex DB for test node discovery and dFlow DB (optionally) for tier classification. Test results come from cortex's `test_results` table. A `POST /api/test/run` endpoint triggers test runs from the browser. The `cortex.toml` `[cortex.scan] test_paths` option prevents test functions from appearing in the Workflows tab."
     },
     {
       "id": "user-stories",
