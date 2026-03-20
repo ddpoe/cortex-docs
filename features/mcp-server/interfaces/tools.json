@@ -10,7 +10,7 @@
     {
       "id": "overview",
       "heading": "Overview",
-      "content": "The cortex MCP server exposes 18 tools via the Model Context Protocol. All tools are implemented in `cortex/mcp_server.py` using the FastMCP framework. Each tool accepts `project_root` (str) as its first parameter.",
+      "content": "The cortex MCP server exposes 19 tools via the Model Context Protocol. All tools are implemented in `cortex/mcp_server.py` using the FastMCP framework. Each tool accepts `project_root` (str) as its first parameter.",
       "level": 2
     },
     {
@@ -93,7 +93,7 @@
     {
       "id": "cortex-history",
       "heading": "cortex_history",
-      "content": "View the change history for a specific node.\n\n**Parameters:**\n| Name | Type | Required | Description |\n|---|---|---|---|\n| `project_root` | str | No | Project directory |\n| `node_id` | str | Yes | The node to inspect |\n| `limit` | int | No (default 10) | Number of history entries to return (max 100) |\n\n**Returns:** Timeline of changes with human-readable descriptions. Change types include content events (`INITIAL`, `CONTENT_ONLY`, `DESC_ONLY`, `CONTENT_AND_DESC`), actor events (`AGENT_VERIFIED`, `MANUAL_VERIFIED`, `CHECKPOINT`), state events (`BECAME_CONTENT_STALE`, `BECAME_DESC_STALE`, `BECAME_LINKED_STALE`, `BECAME_STRUCTURAL_DRIFT`, `BECAME_CLEAN`), and structural events (`LINK_ADDED`, `LINK_REMOVED`). Annotated with stale window duration for `CONTENT_ONLY` events that lack a subsequent description update.\n\n**Linked nodes:**\n- `cortex::cortex.mcp_server::cortex_history` — cortex_history(project_root, node_id, limit=10) — Show the change history for a single node.  @ cortex/mcp_server.py#L531-L712",
+      "content": "View the change history for a specific node.\n\n**Parameters:**\n| Name | Type | Required | Description |\n|---|---|---|---|\n| `project_root` | str | No | Project directory |\n| `node_id` | str | Yes | The node to inspect |\n| `limit` | int | No (default 10) | Number of history entries to return (max 100) |\n\n**Returns:** Timeline of changes with human-readable descriptions. Change types include:\n- **Content events:** `INITIAL`, `CONTENT_ONLY`, `DESC_ONLY`, `CONTENT_AND_DESC`\n- **Actor events:** `AGENT_VERIFIED`, `MANUAL_VERIFIED`, `CHECKPOINT`\n- **State events:** `BECAME_CONTENT_STALE`, `BECAME_DESC_STALE`, `BECAME_LINKED_STALE`, `BECAME_STRUCTURAL_DRIFT`, `BECAME_CLEAN`\n- **Structural events:** `LINK_ADDED`, `LINK_REMOVED`\n- **Lifecycle events:** `DELETED`\n\nAnnotated with stale window duration for `CONTENT_ONLY` events that lack a subsequent description update. Commit subjects included for rows with a `git_sha`.",
       "level": 2,
       "links": [
         {
@@ -104,22 +104,34 @@
     {
       "id": "cortex-report",
       "heading": "cortex_report",
-      "content": "Impact report: what changed since a checkpoint, SHA, or datetime.\n\nSummarises content changes, staleness transitions, link modifications, and verification activity recorded in `node_history`.\n\n**Reference point resolution** (first match wins):\n1. `since_sha` — find the most recent CHECKPOINT whose `git_sha` matches this prefix and use its timestamp as the cutoff.\n2. `since_timestamp` — ISO-8601 datetime used directly as cutoff.\n3. Neither given — use the most recent CHECKPOINT across all nodes.\n4. No checkpoints exist — report over entire history.\n\n**Parameters:**\n| Name | Type | Required | Description |\n|---|---|---|---|\n| `project_root` | str | Yes | Absolute path to the indexed project |\n| `since_sha` | str | No | Git SHA prefix to match against checkpoint rows |\n| `since_timestamp` | str | No | ISO-8601 datetime cutoff |\n| `verbose` | bool | No (default `False`) | When `True`, include full breakdown by category. Default returns summary only |\n\n**Returns:** Always starts with a one-line summary. Pass `verbose=True` for full breakdown by category (content changes, staleness transitions, link changes, verifications).",
+      "content": "Impact report: what changed since a checkpoint, SHA, or datetime.\n\nSummarises content changes, staleness transitions, link modifications, verification activity, and deleted nodes recorded in `node_history`.\n\n**Reference point resolution** (first match wins):\n1. `since_sha` — find the most recent CHECKPOINT whose `git_sha` matches this prefix and use its timestamp as the cutoff.\n2. `since_timestamp` — ISO-8601 datetime used directly as cutoff.\n3. Neither given — use the most recent CHECKPOINT across all nodes.\n4. No checkpoints exist — report over entire history.\n\n**Parameters:**\n| Name | Type | Required | Description |\n|---|---|---|---|\n| `project_root` | str | Yes | Absolute path to the indexed project |\n| `since_sha` | str | No | Git SHA prefix to match against checkpoint rows |\n| `since_timestamp` | str | No | ISO-8601 datetime cutoff |\n| `verbose` | bool | No (default `False`) | When `True`, include full breakdown by category. Default returns summary only |\n\n**Returns:** Always starts with a one-line summary. Pass `verbose=True` for full breakdown by category (content changes, staleness transitions, link changes, verifications, deleted nodes).",
       "level": 2,
       "links": [
         {
           "node_id": "cortex::cortex.mcp_server::cortex_report"
+        },
+        {
+          "node_id": "cortex::cortex.index.db::get_history_since"
+        },
+        {
+          "node_id": "cortex::cortex.index.db::resolve_since_cutoff"
         }
       ]
     },
     {
       "id": "cortex-diff",
       "heading": "cortex_diff",
-      "content": "Show what changed in a node since a baseline commit.\n\n**Baseline resolution** (when `baseline_sha` is omitted):\n1. Most recent `AGENT_VERIFIED`, `MANUAL_VERIFIED`, or `CHECKPOINT` history row with a non-NULL `git_sha`.\n2. Fallback: oldest history row with a `git_sha` (typically the `INITIAL` scan — gives \"diff since first indexed\").\n\nPass `baseline_sha` explicitly to diff against a specific commit (e.g. a SHA from `cortex_history` output).\n\n**Parameters:**\n| Name | Type | Required | Description |\n|---|---|---|---|\n| `project_root` | str | Yes | Absolute path to the indexed project |\n| `node_id` | str | Yes | The node to diff |\n| `baseline_sha` | str | No | Git SHA to diff against. If omitted, auto-resolves from history |\n\n**Returns:** JSON-formatted text with keys: `node_id`, `baseline_sha`, `baseline_date`, `old_content`, `new_content`, `summary` (line-count delta, e.g. \"+5 / -2 lines in body\"). Returns `{\"error\": \"no_baseline\", \"reason\": \"...\"}` if no baseline exists or `git show` fails.",
+      "content": "Show what changed in a node since a baseline commit. Supports both code nodes (line-range sliced source diff) and doc nodes (section-level diff via `get_doc_diff`).\n\n**Baseline resolution** (when `baseline_sha` is omitted):\n1. Most recent `AGENT_VERIFIED`, `MANUAL_VERIFIED`, or `CHECKPOINT` history row with a non-NULL `git_sha`.\n2. Fallback: oldest history row with a `git_sha` (typically the `INITIAL` scan — gives \"diff since first indexed\").\n\nPass `baseline_sha` explicitly to diff against a specific commit (e.g. a SHA from `cortex_history` output or the \"since\" filter's resolved SHA).\n\n**Parameters:**\n| Name | Type | Required | Description |\n|---|---|---|---|\n| `project_root` | str | Yes | Absolute path to the indexed project |\n| `node_id` | str | Yes | The node to diff |\n| `baseline_sha` | str | No | Git SHA to diff against. If omitted, auto-resolves from history |\n\n**Returns:** JSON-formatted text with keys: `node_id`, `baseline_sha`, `baseline_date`, `old_content`, `new_content`, `summary` (line-count delta, e.g. \"+5 / -2 lines in body\"), `commit_subject`, `commit_author`, `commit_date`. Returns `{\"error\": \"no_baseline\", \"reason\": \"...\"}` if no baseline exists or `git show` fails.",
       "level": 2,
       "links": [
         {
           "node_id": "cortex::cortex.mcp_server::cortex_diff"
+        },
+        {
+          "node_id": "cortex::cortex.diff::get_node_diff"
+        },
+        {
+          "node_id": "cortex::cortex.diff::get_doc_diff"
         }
       ]
     },
