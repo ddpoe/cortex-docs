@@ -8,7 +8,7 @@
     {
       "id": "status",
       "heading": "Status",
-      "content": "Phase: auditor\nBaseline SHA: d78c3e0305a4f93e54c4f309472ba3e4ebb3a4eb\nStarted: 2026-03-22T12:00:00Z\nCycle ID: pev-2026-03-22-adr13-broken-link-detection\n\nPhase transitions:\n- planning: 2026-03-22T12:00:00Z — cycle created\n- builder: 2026-03-22T12:15:00Z — plan approved\n- auditor: 2026-03-22T12:30:00Z — builder complete, merged"
+      "content": "Phase: completed\nBaseline SHA: d78c3e0305a4f93e54c4f309472ba3e4ebb3a4eb\nCommit SHA: 7fffeb62d86b8dd1679a74c16d9d85a4391fe673\nStarted: 2026-03-22T12:00:00Z\nCompleted: 2026-03-22T13:00:00Z\nCycle ID: pev-2026-03-22-adr13-broken-link-detection\nTags: pev-cycle\n\nPhase transitions:\n- planning: 2026-03-22T12:00:00Z — cycle created\n- builder: 2026-03-22T12:15:00Z — plan approved\n- auditor: 2026-03-22T12:30:00Z — builder complete, merged\n- completed: 2026-03-22T13:00:00Z — committed as 7fffeb6"
     },
     {
       "id": "request",
@@ -60,7 +60,7 @@
     {
       "id": "auditor",
       "heading": "Auditor Impact Report",
-      "content": "Status: DONE (loopback re-check)\n\nLoopback fix verified: patch_doc_links() now correctly recurses into nested sections via _patch_sections_recursive(). The helper walks section dicts, patches matching links, then recurses into child `sections` lists. Atomic file writes are preserved.\n\n6 new tests in tests/test_link_maintenance.py cover: flat links, nested links, deeply nested (3 levels), no-match, mixed levels, and disk integration.\n\nNodes reviewed (loopback):\n- cortex::cortex.index.link_maintenance — CLEAN (module updated with recursive helper)\n- cortex::cortex.index.link_maintenance::patch_doc_links — CLEAN (delegates to _patch_sections_recursive)\n\nNo further needs_fix items. All cycle-scoped nodes are clean or verified."
+      "content": "Status: DONE (after 1 Builder loopback)\n\nNodes reviewed: 35 (33 initial + 2 from fix)\nNodes marked clean: 35\nDocs updated: 2 sections (staleness design spec — architecture + sequence diagram)\nLinks added: 3\nLinks removed: 0\n\nLoopback: 1 iteration — patch_doc_links() fixed to recurse into nested sections via _patch_sections_recursive(). 6 new tests added for recursive traversal.\n\nRemaining stale nodes: 112 collateral doc nodes from prior cycles (not related to this cycle — need cortex init to clear baselines)."
     }
   ]
 }

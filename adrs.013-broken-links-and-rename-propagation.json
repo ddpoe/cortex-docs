@@ -95,7 +95,7 @@
     {
       "id": "status",
       "heading": "Status",
-      "content": "**Proposed.** Motivated by the `cortex_render_doc` → `cortex_read_doc` rename that left broken links undetected across multiple doc sections."
+      "content": "**Accepted.** All three layers implemented: broken link detection in `cortex_check`, broken link flagging in `cortex_build`, and rename-aware edge migration with DocJSON file patching via `link_maintenance.patch_doc_links()`."
     }
   ]
 }
