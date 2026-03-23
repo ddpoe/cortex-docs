@@ -1,0 +1,84 @@
+{
+  "title": "ADR-015: Config and Memory Change Tracking",
+  "tags": [
+    "adr",
+    "config",
+    "memory",
+    "diff",
+    "viz"
+  ],
+  "sections": [
+    {
+      "id": "status",
+      "heading": "Status",
+      "content": "**Status:** Proposed\n\n**Date:** 2026-03-21\n\n**Decider:** Dante",
+      "level": 2
+    },
+    {
+      "id": "context",
+      "heading": "Context & Problem Statement",
+      "content": "Claude Code stores agent memories as markdown files with frontmatter in `~/.claude/projects/<sanitized-cwd>/memory/`. Project settings (hooks, permissions, MCP server config) live in `.claude/settings.local.json`. Neither is versioned, diffable, or visible in the cortex diff system.\n\nThe cortex config scanner already indexes `.claude/` files — `cortex::config.claude.settings-local` exists in the index today. But three gaps remain:\n\n**1. Memories are outside the project root.** The default `autoMemoryDirectory` points to `~/.claude/projects/.../memory/`, which is outside the project tree. The config scanner can't reach it.\n\n**2. The diff system is coupled to the docs submodule.** `get_doc_diff` hard-codes `file_path.startswith(\"docs/\")` and resolves the submodule SHA via `git ls-tree`. Config files in `.claude/` or main-repo files are rejected. However, `get_doc_diff` already starts from a main-repo commit SHA — the submodule resolution is an extra hop, not the base case. Diffing main-repo files is actually simpler (skip the `ls-tree` step).\n\n**3. Settings aren't committed.** `.claude/settings.local.json` contains project infrastructure (safety hooks, MCP permissions, tool access) but isn't committed because the `.local.json` convention implies personal overrides. In practice, everything in the file is project-scoped and should be shared.\n\n**4. No diff rendering for config nodes.** The viz source panel routes DocJSON nodes to the section diff UI and code nodes to Monaco diff. Config nodes have no diff path — the button doesn't appear.",
+      "level": 2,
+      "links": [
+        {
+          "node_id": "cortex::cortex.scanners.config_scanner::scan_config_dir"
+        },
+        {
+          "node_id": "cortex::cortex.diff::get_doc_diff"
+        },
+        {
+          "node_id": "cortex::config.claude.settings-local"
+        }
+      ]
+    },
+    {
+      "id": "decision",
+      "heading": "The Decision",
+      "content": "Four changes:\n\n### 1. Move settings to committed `settings.json`\n\nMove hooks, permissions, and `enabledMcpjsonServers` from `.claude/settings.local.json` to `.claude/settings.json` (committed to git). `settings.local.json` remains gitignored for truly personal overrides (model preference, extra permissions). This makes project infrastructure versioned in the main repo and diffable via standard git history.\n\n### 2. Move memories into the project\n\nSet `autoMemoryDirectory` to `.claude/memory/` in `.claude/settings.local.json`. This puts memories inside the project root where the config scanner already scans. Memory files are gitignored (they're personal agent context). Each memory file becomes an individual config node: `cortex::config.claude.memory.feedback-poetry-run`, etc.\n\n### 3. Mirror memories to docs submodule for diffing\n\nAdd a step to the pre-commit hook that copies `.claude/memory/*.md` to `docs/config/memories/`. The copy is a simple directory mirror — no format conversion:\n\n```bash\n# In pre-commit hook, before existing docs submodule commit:\nmkdir -p \"$DOCS_DIR/config/memories\"\nrsync -a --delete .claude/memory/*.md \"$DOCS_DIR/config/memories/\" 2>/dev/null || true\n```\n\nThe config scanner picks up the mirrored files in `docs/config/memories/`. The docs submodule versions them. Each memory gets its own git history in the submodule.\n\nAdd `(\"docs/config\", \"config.tracked\")` to `config_dirs` in the builder so the mirrored copies are indexed separately from the source copies (avoiding duplicate node IDs).\n\n### 4. Whole-file `get_config_diff` for config nodes\n\nNew function `get_config_diff(db_path, project_root, node_id, baseline_sha)` that:\n\n1. Looks up the node's `location` (file path) from the nodes table\n2. If the path starts with `docs/`: resolve submodule SHA via `git ls-tree`, then `git show {sub_sha}:{relative_path}` in the submodule (same as `get_doc_diff` steps 2-3)\n3. If the path is a main-repo file: `git show {baseline_sha}:{file_path}` directly (skip the submodule hop — simpler)\n4. Read current content from disk\n5. Return `{old_content, new_content, baseline_sha}` — no JSON section parsing, just raw text\n\nThe viz frontend routes config nodes (`subtype === 'config'`) to Monaco's built-in diff editor, which handles `.md` and `.json` syntax highlighting natively.",
+      "level": 2,
+      "links": [
+        {
+          "node_id": "cortex::cortex.scanners.config_scanner::scan_config_dir"
+        },
+        {
+          "node_id": "cortex::cortex.diff::get_doc_diff"
+        },
+        {
+          "node_id": "cortex::cortex.index.builder"
+        },
+        {
+          "node_id": "cortex::cortex.viz.server::get_node_diff_endpoint"
+        }
+      ]
+    },
+    {
+      "id": "consequences",
+      "heading": "Consequences",
+      "content": "**Positive:**\n- Project settings (hooks, permissions) are versioned in the main repo — team members get them automatically\n- Memories are indexed by the config scanner — searchable, visible in viz, staleness-tracked\n- Mirrored memories in docs submodule get full git history and are diffable through `get_config_diff`\n- `get_config_diff` handles both submodule files and main-repo files, reusing the same baseline SHA resolution\n- No DocJSON conversion needed — memories stay as markdown with frontmatter, settings stay as JSON\n- Monaco diff editor handles both `.md` and `.json` with syntax highlighting out of the box\n- The pre-commit hook already handles docs submodule commits — the mirror step is one line of rsync\n\n**Negative:**\n- Memory files exist in two places (`.claude/memory/` source, `docs/config/memories/` mirror) — the mirror is always one commit behind since it syncs during pre-commit\n- Adding `docs/config` to `config_dirs` means the builder scans an extra directory on every build\n- `settings.local.json` needs the `autoMemoryDirectory` setting configured on each machine (not committed)\n\n**Neutral:**\n- Config nodes get whole-file text diffs, not section-level diffs. For small files (memories, settings) this is perfectly readable\n- Memories are gitignored in the main repo but versioned in the docs submodule — different lifecycle by design\n- The existing PreToolUse hook for `type: user` memory detection continues to work unchanged\n- `get_doc_diff` is untouched — `get_config_diff` is a sibling function, not a modification",
+      "level": 2
+    },
+    {
+      "id": "implementation-order",
+      "heading": "Implementation Order",
+      "content": "**Layer 1 — Move settings (no code changes)**\n- Move hooks, permissions, `enabledMcpjsonServers` from `.claude/settings.local.json` to `.claude/settings.json`\n- Add `.claude/memory/` to `.gitignore`\n- Set `autoMemoryDirectory: \".claude/memory\"` in `.claude/settings.local.json`\n- Migrate existing memory files from `~/.claude/projects/.../memory/` to `.claude/memory/`\n\n**Layer 2 — Pre-commit hook mirror step**\n- Add rsync/copy of `.claude/memory/*.md` to `docs/config/memories/` in `.git/hooks/pre-commit`, before the existing docs submodule commit logic\n- Handle edge case: no memory files (empty `.claude/memory/`)\n- Handle cleanup: remove `docs/config/memories/*.md` files that no longer exist in source\n\n**Layer 3 — Builder: scan mirrored config**\n- Add `(\"docs/config\", \"config.tracked\")` to `config_dirs` in `builder.py`\n- Mirrored memories indexed as `cortex::config.tracked.memories.feedback-poetry-run` etc.\n\n**Layer 4 — `get_config_diff` in `diff.py`**\n- New function alongside `get_doc_diff`\n- Branch on `file_path.startswith(\"docs/\")`: submodule resolution vs direct main-repo `git show`\n- Return `{old_content, new_content, baseline_sha}` (raw text, no section parsing)\n\n**Layer 5 — Viz backend endpoint**\n- New or extended endpoint: `/api/nodes/{id}/config-diff` (or extend existing diff endpoint to detect config nodes)\n- Delegates to `get_config_diff`\n\n**Layer 6 — Viz frontend: Monaco diff for config nodes**\n- Route `subtype === 'config'` nodes to Monaco diff editor instead of section diff UI\n- Pass `old_content` and `new_content` as original/modified models\n- Diff button visible for config nodes (currently hidden)",
+      "level": 2,
+      "links": [
+        {
+          "node_id": "cortex::cortex.index.builder"
+        },
+        {
+          "node_id": "cortex::cortex.diff::get_doc_diff"
+        },
+        {
+          "node_id": "cortex::cortex.viz.server::get_node_diff_endpoint"
+        }
+      ]
+    },
+    {
+      "id": "what-gets-diffed",
+      "heading": "Diffing Summary",
+      "content": "| File | Location | Committed | Indexed | Diffable | Diff method |\n|---|---|---|---|---|---|\n| `.claude/settings.json` | main repo | yes | config scanner | yes | `git show {sha}:.claude/settings.json` |\n| `.claude/memory/*.md` (source) | main repo | no (gitignored) | config scanner | no | — |\n| `docs/config/memories/*.md` (mirror) | docs submodule | yes (auto) | config scanner | yes | submodule SHA resolution → `git show` |\n| `.claude/settings.local.json` | main repo | no (gitignored) | config scanner | no | — |\n\nSource memory files are visible in viz (indexed, searchable, staleness-tracked) but not diffable. The mirrored copies in the docs submodule provide the diff trail. Settings that matter are committed and diffable directly.",
+      "level": 2
+    }
+  ]
+}

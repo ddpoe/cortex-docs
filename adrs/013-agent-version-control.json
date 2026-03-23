@@ -1,0 +1,30 @@
+{
+  "title": "ADR-013: Agent Version Control — Checkpoints Over Commits",
+  "tags": [
+    "adr",
+    "workflow",
+    "version-control"
+  ],
+  "sections": [
+    {
+      "id": "status",
+      "heading": "Status",
+      "content": "**Status:** Accepted\n\n**Date:** 2026-03-21\n\n**Decider:** Dante"
+    },
+    {
+      "id": "context",
+      "heading": "Context & Problem Statement",
+      "content": "Agents tend to commit after every small change. A single logical unit of work (e.g. a schema migration) ends up as 5+ micro-commits, making it hard to review what actually changed. Over-specified implementation plans compound this — they encourage per-step commits that fragment the history.\n\nWe don't want tight coupling to GitHub (branches, PRs) for every piece of work, but we do want meaningful save points that represent complete, reviewable units of change."
+    },
+    {
+      "id": "decision",
+      "heading": "The Decision",
+      "content": "### Agents do not commit\n\nAll agent prompts must include: **\"Do NOT run `git commit`. I will handle version control.\"**\n\nThe human operator reviews the working tree and decides when a checkpoint is ready.\n\n### Checkpoints via tags\n\nA checkpoint is a single commit + tag representing a complete logical unit:\n\n```bash\ngit add -A && git commit -m \"L1: schema — parent_id + depth columns\"\ngit tag checkpoint/<feature>/<label>\n```\n\nTo see what a checkpoint changed:\n\n```bash\ngit diff checkpoint/<feature>/<label-a>..checkpoint/<feature>/<label-b>\n```\n\n### No branch ceremony by default\n\nWork happens on a single feature branch with linear history. No per-layer branches, no squash merges, no PRs for internal checkpoints.\n\nIf branch isolation is needed later (e.g. parallel agents on independent layers), use `git merge --squash` to bring work back as one clean commit. This fails gracefully — conflicts stop the merge and let you resolve or abort.\n\n### Plan granularity\n\nADRs define the *what* and *why*. Agents use `cortex_source` and `cortex_graph` to figure out the *how* from the live codebase. Per-step implementation plans with line numbers and code snippets are not maintained — they go stale before the first review finishes."
+    },
+    {
+      "id": "consequences",
+      "heading": "Consequences",
+      "content": "**Positive:**\n- Each commit in history represents a complete, reviewable unit of work\n- No micro-commit noise to wade through\n- No GitHub dependency for internal workflow\n- Agents can't accidentally push, amend, or force-push\n\n**Negative:**\n- Human must remember to commit — uncommitted work can be lost\n- Agents can't resume from their own checkpoints across sessions (they start from whatever is committed)\n\n**Neutral:**\n- Tags are local by default; push them explicitly if needed for collaboration"
+    }
+  ]
+}

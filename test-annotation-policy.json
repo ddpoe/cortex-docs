@@ -34,6 +34,11 @@
       "id": "dflow-note",
       "heading": "dFlow Note",
       "content": "`@workflow` on a test function is detected by dFlow as a workflow entry point (not distinguished from production workflows in `dflow list`). This is an accepted tradeoff — cortex tags test functions by file convention (`test_*.py`) regardless of decorator, so the semantic distinction is preserved in the cortex index."
+    },
+    {
+      "id": "test-budget",
+      "heading": "Test Budget",
+      "content": "**Guideline: 5–10 focused tests per subsystem change.** Past 15, you are likely testing implementation details rather than behavior — consolidate.\n\nThe goal is tests that each cover a meaningful scenario. Three similar assertions about the same behavior belong in one test, not three. A test that exercises a complete flow (write data → read data → verify) is worth more than five tests that each check one field.\n\n**Signs of over-testing:**\n- Multiple tests that differ only in the input value (parameterize instead)\n- Separate tests for setup, action, and assertion that could be one test\n- Tests that duplicate assertions already covered by another test at a higher level\n- Tests for internal helpers that are already exercised through the public API test\n\n**Signs of under-testing:**\n- Changed code nodes with no `validates` edge (no test covers them)\n- Edge cases mentioned in the design spec but not exercised\n- Error paths with no negative test\n\n**Auditor enforcement:** The Auditor references this section during the test audit. Excessive test counts go in the Impact Report under `needs_fix` with category `test_budget`, along with specific consolidation recommendations. The Builder is expected to generate tests within budget; the Auditor catches overruns."
     }
   ]
 }

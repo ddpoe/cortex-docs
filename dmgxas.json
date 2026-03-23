@@ -7,7 +7,18 @@
       "heading": "Introduction",
       "content": "**Note:** This document captures early brainstorming (with Gemini) about positioning Axiom as a product. The marketing language here is aspirational and predates the competitive analysis and technical grounding done later. For the current, realistic vision see **axiom-vision** (`cortex::docs.axiom-vision`). The original content is preserved below for historical context.\n\n---\n\n**Original brainstorming (March 2025):**\n\nWhat to focus on when marketing:\n\n- **Integrity, Verifiability, and Architectural Awareness**\n- \"The World's First Self-Healing, Architecturally-Aware Engineering Intelligence\"\n- \"Axiom isn't just an AI that writes code; it's a multi-agent ecosystem that maintains a living map of your entire software architecture. By triangulating between **Business Intent (PRD)**, **Technical Design (Spec)**, and **Deterministic Code Structure (AST)**, Axiom ensures that every line of code is verifiable, every test is relevant, and your documentation is never out of date.\"\n- **The Impact Guardrail:** \"Our GitHub Action generates a 'Semantic Impact Report.' Before you merge, you'll know exactly which user guides, tests, and workflows were affected by a single function change.\"\n- **Neuro-Symbolic Reliability:** \"We combine the creative reasoning of LLMs (Neural) with the rigid logic of AST Graphs (Symbolic). It's the speed of AI with the safety of a Senior Architect.\"\n\n**Component mapping (original personas):**\n\n| System | Technical Role | Persona | Description |\n|---|---|---|---|\n| **dFlow** | Workflow Documentation | The Star-Charts | Mapping the \"Highways\" of intent |\n| **Cortex** | AST Parser | The Deep Roots | Deterministic skeleton of every function and test |\n| **DocJSON** | Documentation System | The Living Ledger | Structured memory that grows as the system evolves |\n| **PEV Agent** | The Executive | The Triumvirate | Architect (Vision), Builder (Action), Auditor (Balance) |",
       "level": 2,
-      "links": []
+      "links": [],
+      "sections": [
+        {
+          "id": "bb",
+          "heading": "Hello",
+          "content": "",
+          "level": 3,
+          "tags": [],
+          "links": [],
+          "slug_auto": false
+        }
+      ]
     },
     {
       "id": "new-section-1773065719295",

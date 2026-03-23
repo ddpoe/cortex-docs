@@ -1,0 +1,37 @@
+{
+  "title": "Design Spec: Auto-Slug Section IDs",
+  "tags": [
+    "design",
+    "proposed",
+    "viz",
+    "doc-manager",
+    "ux"
+  ],
+  "sections": [
+    {
+      "id": "architecture",
+      "heading": "Architecture Overview",
+      "content": "Auto-slug is a **viz-only frontend feature**. The MCP tools and DocJSON format do not change — they already require explicit section IDs. All slug generation, editing UI, and validation logic lives in `docs.js`.\n\n**Slug generation:** When a section is created or its heading changes (and `slug_auto` is true), generate a kebab-case slug from the heading: lowercase, replace non-alphanumeric runs with hyphens, truncate to first ~5 words or ~40 characters (whichever is shorter), strip leading/trailing hyphens.\n\n**DocJSON metadata:** Each section gains an optional `slug_auto` boolean field. When `true`, the slug was machine-generated and will re-sync on heading changes. When `false` (or absent for backwards compatibility), the slug is treated as manually set and left alone.\n\n**Validation:** On doc save, two checks run: (1) no section has an empty heading, (2) no two sibling sections share the same slug. Validation errors block save and highlight offending sections with error messages."
+    },
+    {
+      "id": "sequence-diagram",
+      "heading": "Sequence of Operations",
+      "content": "### Add New Section\n```\nUser clicks \"Add Section\" or \"+ Sub\":\n  1. Generate slug from default heading \"New Section\" → \"new-section\"\n  2. Set slug_auto = true\n  3. Show section with heading + slug inline (idle state)\n  4. Auto-open heading edit mode\n```\n\n### Edit Heading (slug_auto = true)\n```\nUser changes heading text and applies:\n  1. Regenerate slug from new heading text\n  2. Keep slug_auto = true\n  3. Update slug display (idle state)\n```\n\n### Edit Heading (slug_auto = false)\n```\nUser changes heading text and applies:\n  1. Do NOT change slug — user manually set it\n  2. slug_auto remains false\n```\n\n### Edit Slug\n```\nUser clicks on slug text (idle → active):\n  1. Replace plain text with editable input + ✓/✕ buttons\n  2. Show live conflict check below\n  3. On accept: set slug_auto = false (user touched it)\n  4. On cancel: revert to previous slug, keep slug_auto unchanged\n```\n\n### Save Document\n```\nUser clicks Save:\n  1. Validate: no empty headings\n  2. Validate: no duplicate slugs within same parent scope\n  3. If errors: block save, show error messages on offending sections\n  4. If clean: PUT /api/docs/{id} with _rawDoc (includes slug_auto flags)\n```"
+    },
+    {
+      "id": "data-modeling",
+      "heading": "Data Model & Graph Schema",
+      "content": "**DocJSON section schema change:**\n\nExisting section object gains one optional field:\n\n```json\n{\n  \"id\": \"pev-agent-system\",\n  \"heading\": \"PEV Agent System\",\n  \"content\": \"...\",\n  \"slug_auto\": true\n}\n```\n\n`slug_auto` is optional and defaults to `false` for backwards compatibility — all existing sections with manually-set or legacy IDs are treated as manually set.\n\n**No database schema changes.** The `slug_auto` flag is stored in the DocJSON file and passed through to the frontend. The scanner and DB don't need to know about it."
+    },
+    {
+      "id": "decision-log",
+      "heading": "Implementation Trade-offs",
+      "content": "**Frontend-only vs full-stack slug generation:** Chose frontend-only because MCP tools (`cortex_add_section`) already require explicit section IDs from agents. Auto-slug is a UX convenience for humans using the browser, not a system-wide behavior.\n\n**Truncation strategy:** ~5 words / ~40 chars balances readability with brevity. Slugs like `pev-agent-system-spec-driven` are usable; slugs like `very-long-section-title-about-how-we-handle-authentication-flows-in-the-new-middleware` are not.\n\n**Validation on save vs real-time:** Duplicate check runs on save (blocking) and also as a live indicator during slug editing (non-blocking preview). Empty heading check is save-only. This keeps the UX responsive without over-engineering.\n\n**slug_auto default false:** Backwards compatible — existing docs with hand-written or timestamp-based IDs are treated as manual. Only new sections created through the viz get `slug_auto: true`."
+    },
+    {
+      "id": "verification-plan",
+      "heading": "Technical Verification",
+      "content": "**Test cases:**\n1. Add section → slug auto-generated from heading, `slug_auto: true`\n2. Change heading with `slug_auto: true` → slug updates\n3. Change heading with `slug_auto: false` → slug unchanged\n4. Click slug, edit it, accept → `slug_auto` flips to `false`\n5. Click slug, cancel → slug and `slug_auto` unchanged\n6. Two sections with same slug → save blocked with error\n7. Empty heading → save blocked with error\n8. Long heading (>40 chars / >5 words) → slug properly truncated\n9. Heading with special characters → slug sanitized to kebab-case\n10. Existing doc with no `slug_auto` field → treated as `false`, no re-sync"
+    }
+  ]
+}

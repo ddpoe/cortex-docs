@@ -1,0 +1,44 @@
+{
+  "title": "Design Spec: Rename Section ID",
+  "tags": [
+    "design",
+    "proposed",
+    "mcp",
+    "doc-manager"
+  ],
+  "sections": [
+    {
+      "id": "architecture",
+      "heading": "Architecture Overview",
+      "content": "Adds an optional `new_id` parameter to the existing `cortex_update_section` MCP tool. When provided, the tool renames the section ID across the DocJSON file on disk, the database (doc_sections, edges, history), and re-indexes.\n\n**Scope:** MCP tool change only. The viz frontend does not use this directly — it writes the full doc via PUT which triggers a full re-index. The `new_id` parameter is for agents that want atomic, history-preserving renames.\n\n**ID format:** The `new_id` must be a simple slug (lowercase, hyphens, no dots). The full qualified ID is reconstructed from the parent path automatically, matching how `cortex_add_section` works.",
+      "links": [
+        {
+          "node_id": "cortex::cortex.mcp_server::cortex_update_section"
+        },
+        {
+          "node_id": "cortex::cortex.index.db::rename_doc_section"
+        }
+      ]
+    },
+    {
+      "id": "sequence-diagram",
+      "heading": "Sequence of Operations",
+      "content": "### Rename Section via MCP\n```\nAgent calls cortex_update_section(section_id, new_id, heading?, content?):\n  1. Resolve full section ID from section_id parameter\n  2. Validate new_id format (lowercase, hyphens only)\n  3. Check new_id doesn't collide with existing sibling sections\n  4. Load DocJSON file from disk\n  5. Find section in tree via dot-path\n  6. Update section 'id' field to new_id\n  7. Write updated DocJSON to disk\n  8. Build old and new full qualified IDs\n  9. Update doc_sections: rename id, update any parent_id refs for children\n  10. Update edges: rename source/target where they match old ID\n  11. Update history: rename node_id where it matches old ID\n  12. Re-scan and re-index the doc\n  13. Return confirmation with old → new ID mapping\n```"
+    },
+    {
+      "id": "data-modeling",
+      "heading": "Data Model & Graph Schema",
+      "content": "**No schema changes.** The rename operates on existing tables by updating ID values in place:\n\n| Table | Column(s) updated | Condition |\n|---|---|---|\n| `doc_sections` | `id` | WHERE id = old_full_id |\n| `doc_sections` | `parent_id` | WHERE parent_id = old_full_id (children of renamed section) |\n| `edges` | `source` | WHERE source = old_full_id |\n| `edges` | `target` | WHERE target = old_full_id |\n| `history` | `node_id` | WHERE node_id = old_full_id |\n\n**Nested section handling:** If a parent section is renamed, all children's IDs must also update because their full qualified IDs include the parent's slug in the dot-path. For example, renaming `overview` to `intro` means child `overview.details` becomes `intro.details`."
+    },
+    {
+      "id": "decision-log",
+      "heading": "Implementation Trade-offs",
+      "content": "**Optional param on existing tool vs dedicated tool:** Chose optional param on `cortex_update_section` because rename is conceptually an update to the section, and adding a new tool increases the tool surface area agents need to discover. The `new_id` param is optional — existing usage is unaffected.\n\n**In-place DB updates vs delete+recreate:** Chose in-place updates to preserve history continuity. Delete+recreate would lose the history chain and require tombstone records.\n\n**Cascading children on parent rename:** Required because child full IDs include the parent dot-path. This adds complexity but is necessary for correctness — a parent rename without cascading would orphan all children."
+    },
+    {
+      "id": "verification-plan",
+      "heading": "Technical Verification",
+      "content": "**Test cases:**\n1. Rename leaf section → ID updates in doc_sections, edges, history\n2. Rename parent section → all children's IDs cascade-update\n3. Rename to existing sibling ID → error, no changes made\n4. Rename with invalid characters → error, no changes made\n5. Rename + update heading/content in same call → all changes applied\n6. Rename preserves history entries (old events still queryable under new ID)\n7. Rename updates DocJSON file on disk correctly\n8. After rename, `cortex_read_doc(section=new_id)` returns the section\n9. After rename, `cortex_graph(node_id=new_full_id)` shows correct edges"
+    }
+  ]
+}

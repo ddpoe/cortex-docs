@@ -1,0 +1,34 @@
+{
+  "title": "PRD: Rename Section ID",
+  "tags": [
+    "prd",
+    "proposed",
+    "mcp",
+    "doc-manager"
+  ],
+  "sections": [
+    {
+      "id": "problem",
+      "heading": "Problem Statement",
+      "content": "Once a section is created, its ID cannot be changed without creating a new section and deleting the old one. This loses history and breaks any edges or links pointing to the old section ID. Agents using `cortex_update_section` can change a section's heading and content but have no way to fix a bad or auto-generated slug."
+    },
+    {
+      "id": "user-stories",
+      "heading": "User Stories",
+      "content": "**US-RS-01 — Rename section ID via MCP**\nAs an agent, I want to pass a `new_id` parameter to `cortex_update_section` so that I can rename a section's slug without losing its history or breaking links.\n\n**US-RS-02 — Cascading reference updates**\nAs an agent, I want all database references (doc_sections, edges, history) to update when a section ID changes so that nothing breaks silently.\n\n**US-RS-03 — Rename validation**\nAs an agent, I want the rename to fail with a clear error if the new ID collides with an existing section in the same document so that I don't create duplicates."
+    },
+    {
+      "id": "current-capabilities",
+      "heading": "Current Capabilities",
+      "content": "| Capability | Status |\n|---|---|\n| `new_id` parameter on `cortex_update_section` | Done |\n| Cascading rename in doc_sections table | Done |\n| Cascading rename in edges table | Done |\n| Cascading rename in history table | Done |\n| Update DocJSON file on disk with new ID | Done |\n| Duplicate ID validation on rename | Done |"
+    },
+    {
+      "id": "backlog",
+      "heading": "Backlog",
+      "tags": [
+        "backlog"
+      ],
+      "content": "**Viz slug rename integration** — The auto-slug feature (sibling sub-feature) allows editing slugs in the browser. Currently this only changes the ID in the in-memory doc before save. Once `cortex_update_section` supports `new_id`, the viz could use it for atomic renames with proper cascading — but this is a future enhancement. For v1, the viz save endpoint already writes the full doc, so the rename is handled by the re-index on save."
+    }
+  ]
+}

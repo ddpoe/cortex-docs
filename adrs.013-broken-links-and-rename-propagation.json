@@ -1,0 +1,101 @@
+{
+  "title": "ADR-013: Broken Link Detection and Rename-Aware Edge Propagation",
+  "tags": [
+    "adr",
+    "staleness",
+    "scanning",
+    "links",
+    "rename"
+  ],
+  "sections": [
+    {
+      "id": "context",
+      "heading": "Context",
+      "content": "When a function is renamed (e.g. `cortex_render_doc` → `cortex_read_doc`), the hash-similarity rename detection in the builder correctly migrates history and verification to the new node ID. However, **edges are not migrated**. Doc sections that linked to the old node ID now point to a node that no longer exists — a broken link.\n\nThis is invisible to the current staleness engine. `LINKED_STALE` only fires when a linked target *changes* — a deleted target produces no signal. The edge points into the void and nothing flags it. `cortex_write_doc` and `cortex_add_link` validate links at *creation time* only, so links that were valid when written become silently broken after a rename.\n\nThe `cortex_render_doc` → `cortex_read_doc` rename is the concrete example: the interface doc section `cortex::docs.features.mcp-server.interfaces.tools::cortex-render-doc` has a `documents` edge pointing to `cortex::cortex.mcp_server::cortex_render_doc`, which no longer exists. The section ID itself is also stale (`cortex-render-doc` instead of `cortex-read-doc`), but no system caught either issue.",
+      "links": [
+        {
+          "node_id": "cortex::cortex.index.db::record_code_rename"
+        },
+        {
+          "node_id": "cortex::cortex.index.db::record_doc_rename"
+        },
+        {
+          "node_id": "cortex::docs.features.mcp-server.interfaces.tools::cortex-render-doc"
+        },
+        {
+          "node_id": "cortex::cortex.mcp_server::cortex_read_doc"
+        }
+      ]
+    },
+    {
+      "id": "decision",
+      "heading": "Decision",
+      "content": "Implement three layers of defense against broken links, from detection to prevention:\n\n**Layer 1 — `BROKEN_LINK` detection in `cortex_check`**\nAdd a SQL query to find edges whose `to_id` doesn't exist in the `nodes` table. Report as a new category in `cortex_check` output. Flag the *source* node (the doc section or test that owns the broken link) with a new staleness status `BROKEN_LINK`. This is not promotable — you can't `mark_clean` a broken link, you have to fix it.\n\n**Layer 2 — `BROKEN_LINK` flagging in `cortex_build`**\nAfter the purge pass in `cortex build`, run the same broken-link scan. Any doc section or test whose link target was just purged gets flagged `BROKEN_LINK` immediately, rather than waiting for the next `cortex_check`. This catches new broken links at the moment they're created (by a rename or deletion).\n\n**Layer 3 — Rename-aware edge migration**\nWhen `record_code_rename(old_id, new_id)` or `record_doc_rename(old_id, new_id)` fires, also:\n1. Update all edges: `UPDATE edges SET to_id = new_id WHERE to_id = old_id`\n2. Update all edges: `UPDATE edges SET from_id = new_id WHERE from_id = old_id`\n3. Patch DocJSON files on disk: find every doc section whose `links` array contains `{\"node_id\": \"old_id\"}` and replace with `{\"node_id\": \"new_id\"}`\n\nThis prevents broken links from being created in the first place. Layers 1 and 2 remain as safety nets for cases Layer 3 doesn't cover (manual deletions, external edits, bugs)."
+    },
+    {
+      "id": "staleness-vocabulary",
+      "heading": "BROKEN_LINK Staleness Status",
+      "content": "New status added to the staleness vocabulary:\n\n| Status | Applies to | Meaning | Promotable? |\n|---|---|---|---|\n| `BROKEN_LINK` | `atomic_process` (doc sections, tests) | A `documents` or `validates` edge points to a node_id that does not exist in the index | No — the link must be fixed or removed |\n\n**Severity order update:** `STRUCTURAL_DRIFT > BROKEN_LINK > CONTENT_STALE > LINKED_STALE > DESC_STALE > CLEAN`\n\n`BROKEN_LINK` is higher severity than `CONTENT_STALE` because it indicates a graph integrity problem, not just a content drift. A content-stale node still has valid references — a broken-link node is referencing something that doesn't exist.\n\n**Composite inheritance:** `BROKEN_LINK` propagates to parent composite nodes via worst-child severity, same as all other statuses.",
+      "links": [
+        {
+          "node_id": "cortex::docs.features.indexer.sub_features.staleness.design::architecture"
+        }
+      ]
+    },
+    {
+      "id": "implementation-layers",
+      "heading": "Implementation Details",
+      "content": "### Layer 1: Detection in `cortex_check`\n\n**Where:** `cortex/index/staleness.py` — new function `find_broken_links(db_path)`\n\n**SQL:**\n```sql\nSELECT e.from_id, e.to_id, e.edge_type\nFROM edges e\nLEFT JOIN nodes n ON e.to_id = n.node_id\nWHERE n.node_id IS NULL\n  AND e.edge_type IN ('documents', 'validates')\n```\n\nOnly check `documents` and `validates` edges — `composes` and `depends_on` edges are managed by the scanner and should never dangle (if they do, it's a builder bug, not a user-facing issue).\n\nFor each broken link found, set `staleness = 'BROKEN_LINK'` on the `from_id` node. Include in `cortex_check` output: `2 BROKEN_LINK`.\n\n### Layer 2: Flagging in `cortex_build`\n\n**Where:** `cortex/index/builder.py` — after the purge pass in `build()`\n\nAfter `_purge_stale_entries` removes nodes for deleted files, call `find_broken_links(db_path)` and persist any `BROKEN_LINK` statuses. This means a `cortex build` after deleting/renaming a file will immediately surface broken links without needing a separate `cortex_check`.\n\n### Layer 3: Edge migration in rename functions\n\n**Where:** `cortex/index/db.py` — extend `record_code_rename()` and `record_doc_rename()`\n\nAdd after existing history/verification migration:\n```python\n# Migrate edges\nconn.execute(\n    \"UPDATE edges SET to_id = ? WHERE to_id = ?\",\n    (new_id, old_id),\n)\nconn.execute(\n    \"UPDATE edges SET from_id = ? WHERE from_id = ?\",\n    (new_id, old_id),\n)\n```\n\n**DocJSON file patching:** New helper function `_patch_doc_links(project_root, old_id, new_id)` that:\n1. Queries all doc sections that have a `documents` edge to `old_id`\n2. For each, reads the JSON file, walks the `links` array, replaces `old_id` with `new_id`, writes the file back\n3. This keeps the on-disk DocJSON in sync with the edge table\n\n**Where the helper lives:** Could be in `db.py` (close to the rename functions) or in a new `cortex/index/link_maintenance.py`. The DocJSON patching involves file I/O which is unusual for `db.py` — a separate module is cleaner.",
+      "links": [
+        {
+          "node_id": "cortex::cortex.index.staleness::compute_staleness"
+        },
+        {
+          "node_id": "cortex::cortex.index.builder::build"
+        },
+        {
+          "node_id": "cortex::cortex.index.db::record_code_rename"
+        },
+        {
+          "node_id": "cortex::cortex.index.db::record_doc_rename"
+        }
+      ]
+    },
+    {
+      "id": "renaming-sub-feature",
+      "heading": "Renaming as a Sub-Feature of Scanning",
+      "content": "Rename-aware edge propagation (Layer 3) should be a dedicated sub-feature under `docs/features/indexer/sub_features/renaming/` rather than being folded into the existing scanning design spec. Rationale:\n\n1. **Distinct user stories** — \"when a function is renamed, all doc links auto-update\" is separate from \"scan Python files to produce nodes\"\n2. **Distinct failure modes** — broken links, partial renames, DocJSON file patching errors\n3. **Cross-system interaction** — touches builder (detection), db (edge migration), doc scanner (file patching), staleness (BROKEN_LINK status), MCP tools (cortex_check output)\n4. **Needs its own verification plan** — rename scenarios are tricky (rename + refactor, rename + delete, section rename, cross-file move)\n\nThe existing rename detection in `builder.py` (hash-similarity matching) and `record_code_rename`/`record_doc_rename` in `db.py` are the foundation. This sub-feature extends them with edge propagation and DocJSON patching.\n\n**Proposed doc structure:**\n```\ndocs/features/indexer/sub_features/renaming/\n  prd.json     — user stories, acceptance criteria\n  design.json  — three layers, edge migration, DocJSON patching\n```",
+      "links": [
+        {
+          "node_id": "cortex::docs.features.indexer.sub_features.scanning.design"
+        },
+        {
+          "node_id": "cortex::docs.features.indexer.sub_features.scanning.prd"
+        },
+        {
+          "node_id": "cortex::docs.features.indexer.sub_features.staleness.design::architecture"
+        }
+      ]
+    },
+    {
+      "id": "implementation-order",
+      "heading": "Implementation Order",
+      "content": "1. **Layer 1 — `BROKEN_LINK` in `cortex_check`** (smallest, immediate value)\n   - Add `find_broken_links()` to `staleness.py`\n   - Add `BROKEN_LINK` to staleness vocabulary and severity map\n   - Update `cortex_check` MCP tool and CLI to report broken links\n   - Fix the existing `render_doc` → `read_doc` broken link as validation\n\n2. **Layer 2 — `BROKEN_LINK` in `cortex_build`** (incremental)\n   - Call `find_broken_links()` after purge pass in `build()`\n   - Persist `BROKEN_LINK` staleness immediately\n   - Update viz dashboard to display `BROKEN_LINK` nodes\n\n3. **Layer 3 — Rename-aware edge migration** (preventive)\n   - Extend `record_code_rename` and `record_doc_rename` with edge UPDATE\n   - Create `_patch_doc_links()` helper for DocJSON file patching\n   - Add rename edge migration tests (rename, rename+refactor, section rename)\n   - Create renaming sub-feature docs (prd.json, design.json)\n\n4. **Cleanup — Fix existing broken links**\n   - Run `cortex_check` with Layer 1 to find all current broken links\n   - Fix each one (update doc section links, section IDs, content)",
+      "links": [
+        {
+          "node_id": "cortex::docs.plans.pev-superpowers-integration::task-3"
+        }
+      ]
+    },
+    {
+      "id": "consequences",
+      "heading": "Consequences",
+      "content": "**Gains:**\n- Graph integrity is now verifiable — `cortex_check` reports broken links alongside staleness\n- Renames no longer silently break doc links — edges auto-migrate\n- `BROKEN_LINK` is a clear, non-promotable status that demands action\n- The PEV Auditor can use `BROKEN_LINK` as a loop condition alongside other staleness statuses\n- DocJSON files on disk stay in sync with the edge table after renames\n\n**Loses:**\n- DocJSON file patching in Layer 3 adds file I/O to the rename path (previously pure DB)\n- `BROKEN_LINK` is a new staleness status that all consumers (viz, CLI, MCP) need to handle\n- Edge migration in rename functions adds write amplification (UPDATE edges WHERE to_id = old)\n\n**Risks:**\n- DocJSON file patching could corrupt files if interrupted mid-write (mitigate: write to temp file then atomic rename)\n- Layer 3 edge migration won't catch cases where a function is deleted without a rename (no hash match) — Layers 1+2 cover this\n- The `node_renames` table records old→new mappings but doesn't currently track whether edges were migrated — consider adding a `edges_migrated` boolean column"
+    },
+    {
+      "id": "status",
+      "heading": "Status",
+      "content": "**Proposed.** Motivated by the `cortex_render_doc` → `cortex_read_doc` rename that left broken links undetected across multiple doc sections."
+    }
+  ]
+}

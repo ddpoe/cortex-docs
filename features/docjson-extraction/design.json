@@ -29,8 +29,22 @@
     {
       "id": "scanner",
       "heading": "Scanner",
-      "content": "Currently `json_doc_scanner.py` returns `CortexNode`/`CortexEdge` objects. After extraction:\n\n**Before (cortex-coupled):**\n```python\ndef scan_json_docs(docs_dir, project_root) -> tuple[list[CortexNode], list[CortexEdge], list, list]:\n```\n\n**After (standalone):**\n```python\ndef scan_json_doc(path: Path) -> DocModel:  # returns pure docjson types\ndef scan_dir(docs_dir: Path) -> list[DocModel]:\n```\n\nThe cortex builder adapter converts `DocModel` → `CortexNode` + `CortexEdge` at integration time. The scanner no longer imports anything from cortex.",
-      "level": 2
+      "content": "Currently `json_doc_scanner.py` returns `CortexNode`/`CortexEdge` objects. After extraction, the scanner becomes standalone with its own types. The cortex builder adapter converts at integration time.",
+      "level": 2,
+      "sections": [
+        {
+          "id": "current-api",
+          "heading": "Current API (cortex-coupled)",
+          "content": "The scanner is tightly coupled to cortex types:\n\n```python\ndef scan_json_docs(docs_dir, project_root) -> tuple[list[CortexNode], list[CortexEdge], list, list]:\n```\n\nThis returns cortex-specific node and edge objects, making it impossible to use the scanner outside of cortex.",
+          "level": 3
+        },
+        {
+          "id": "extracted-api",
+          "heading": "Extracted API (standalone)",
+          "content": "After extraction, the scanner returns pure docjson types:\n\n```python\ndef scan_json_doc(path: Path) -> DocModel:  # returns pure docjson types\ndef scan_dir(docs_dir: Path) -> list[DocModel]:\n```\n\nThe cortex builder adapter converts `DocModel` → `CortexNode` + `CortexEdge` at integration time. The scanner no longer imports anything from cortex.",
+          "level": 3
+        }
+      ]
     },
     {
       "id": "viz-decoupling",

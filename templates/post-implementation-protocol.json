@@ -9,7 +9,7 @@
     {
       "id": "purpose",
       "heading": "Purpose",
-      "content": "This protocol is followed by the implementer (agent or human) after completing a feature or backlog item. It ensures documentation stays current and doc-to-code links are established before the work is considered done.\n\nThe protocol is intentionally short. Use `cortex_update_section` to patch individual sections without constructing full DocJSON."
+      "content": "This protocol is followed by the implementer (agent or human) after completing a feature or backlog item. It ensures documentation stays current and doc-to-code links are established before the work is considered done.\n\nThe protocol is intentionally short. Use `cortex_update_section` to patch individual sections without constructing full DocJSON.\n\n**For PEV workflows:** This protocol is superseded by `cortex::docs.templates.auditor-reference-protocol`, which combines this protocol with the audit protocol and PEV-specific checks. The PEV Auditor agent points at the combined doc. This standalone version is retained for manual (non-PEV) post-implementation use.\n\n**Linked nodes:**\n- `cortex::docs.templates.auditor-reference-protocol` — Auditor Reference Protocol (combined, for PEV)"
     },
     {
       "id": "where-status-lives",

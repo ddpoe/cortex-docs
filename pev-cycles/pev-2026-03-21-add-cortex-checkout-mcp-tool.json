@@ -1,0 +1,103 @@
+{
+  "title": "PEV Cycle: pev-2026-03-21-add-cortex-checkout-mcp-tool",
+  "tags": [
+    "pev-cycle",
+    "pev-active"
+  ],
+  "sections": [
+    {
+      "id": "status",
+      "heading": "Status",
+      "content": "Phase: planning\nBaseline SHA: d78c3e0305a4f93e54c4f309472ba3e4ebb3a4eb\nStarted: 2026-03-21T00:00:00Z\nCycle ID: pev-2026-03-21-add-cortex-checkout-mcp-tool\n\nPhase transitions:\n- planning: 2026-03-21T00:00:00Z — cycle created"
+    },
+    {
+      "id": "request",
+      "heading": "Request",
+      "content": "Add a cortex_checkout MCP tool that copies the cortex DB into a worktree via VACUUM INTO"
+    },
+    {
+      "id": "scope",
+      "heading": "Scope",
+      "content": "| Node ID | Current State | Planned Change |\n|---|---|---|\n| `cortex::cortex.index.db` | DB layer with `_connect`, `init_db`, and query/upsert helpers. No `VACUUM INTO` support. | Add `vacuum_into(source_db_path, target_db_path)` function after `init_db` (line ~312). |\n| `cortex::cortex.mcp_server` | 20 MCP tools registered. No checkout/copy tool. | Add `cortex_checkout` MCP tool after `cortex_build` (line ~233). Tool count becomes 21. |\n| `cortex::cortex.cli` | CLI commands for init, build, render, list, graph, check, etc. No checkout command. | Add `cmd_checkout` CLI command after `cmd_build` (line ~150). |\n\nScope decision: Single-feature. All three changes support the same capability (DB checkout into a worktree). No cross-cutting concerns."
+    },
+    {
+      "id": "architect",
+      "heading": "Architect Plan",
+      "content": "",
+      "sections": [
+        {
+          "id": "problem",
+          "heading": "Problem",
+          "content": "When working with git worktrees (e.g., for parallel agent sessions), each worktree needs its own copy of the cortex index DB (`.cortex/cortex.db`). Currently there is no built-in way to copy the DB safely — a naive file copy can produce a corrupt snapshot if the source DB has uncommitted WAL pages. SQLite's `VACUUM INTO` command produces an atomic, consistent, standalone copy that reads through the WAL, making it the correct primitive for this operation. This cycle adds a `vacuum_into` DB helper, a `cortex_checkout` MCP tool, and a `cortex checkout` CLI command to expose this capability."
+        },
+        {
+          "id": "user-stories",
+          "heading": "User Stories",
+          "content": "- As an agent orchestrator, I want to copy the cortex DB into a worktree before dispatching a Builder agent, so that the Builder has a read-only index snapshot without running a full `cortex init` from scratch.\n- As a developer, I want a CLI command to copy the cortex DB into a worktree directory, so that I can set up parallel workspaces quickly without worrying about WAL corruption.\n- As an MCP tool consumer, I want the checkout to skip if the target DB already exists, so that accidental re-runs don't overwrite a Builder's in-progress index."
+        },
+        {
+          "id": "capabilities",
+          "heading": "Capabilities",
+          "content": "| # | Capability | Status |\n|---|---|---|\n| 1 | `db.vacuum_into()` — DB helper function in `cortex/index/db.py` that copies a source DB to a target path via `VACUUM INTO`, with single-quote path guard | Not started |\n| 2 | `cortex_checkout` MCP tool — registered in `cortex/mcp_server.py`, validates source/target, calls `db.vacuum_into()`, returns success/skip/error message. No `--force`. | Not started |\n| 3 | `cortex checkout` CLI command — registered in `cortex/cli.py`, validates source/target via Click, calls `db.vacuum_into()`, echoes result. Includes `--force` flag (CLI only). | Not started |\n| 4 | Tests for checkout — `tests/test_checkout.py` confirming atomic copy produces valid DB, skip-if-exists, force overwrite, single-quote rejection, and error cases | Not started |"
+        },
+        {
+          "id": "design",
+          "heading": "Design",
+          "content": "Three components: a low-level DB helper (`vacuum_into`), an MCP tool (`cortex_checkout`), and a CLI command (`cortex checkout`). The MCP tool and CLI command both delegate to the DB helper. See sub-sections for implementation details per component.",
+          "sections": [
+            {
+              "id": "db-helper",
+              "heading": "DB Helper: vacuum_into",
+              "content": "Add to `cortex/index/db.py` after the `init_db` function (around line 312):\n\n```python\ndef vacuum_into(source_db_path: Path, target_db_path: Path) -> None:\n    \"\"\"Copy source DB to target via VACUUM INTO (atomic, WAL-safe).\"\"\"\n    target_str = str(target_db_path)\n    if \"'\" in target_str:\n        raise ValueError(\n            f\"Target path contains a single quote, which is not supported \"\n            f\"by VACUUM INTO: {target_db_path}\"\n        )\n    target_db_path.parent.mkdir(parents=True, exist_ok=True)\n    with _connect(source_db_path) as conn:\n        conn.execute(f\"VACUUM INTO '{target_str}'\")\n```\n\nKey details:\n- Uses the existing `_connect()` context manager which sets WAL mode and timeout=5\n- `VACUUM INTO` is a single SQL statement that reads through WAL and produces a clean standalone DB file\n- The target path is passed as a string literal in the SQL (SQLite requires this for VACUUM INTO — it does not support parameter binding for the target path)\n- **Single-quote guard:** Rejects paths containing `'` with a `ValueError` before hitting SQLite. This turns a confusing SQL syntax error into a clear message. Single-quote paths are invalid on Windows and extremely rare on Unix.\n- The `_connect()` context manager will `commit()` on success, but `VACUUM INTO` does not modify the source DB so this is harmless\n- `mkdir(parents=True, exist_ok=True)` ensures the `.cortex/` directory exists in the target\n- Uses `str(target_db_path)` as-is — native OS path separators are correct on all platforms (SQLite's C library uses native OS file APIs)"
+            },
+            {
+              "id": "mcp-tool",
+              "heading": "MCP Tool: cortex_checkout",
+              "content": "Add to `cortex/mcp_server.py`. Place it after `cortex_build` (line ~233) since it is a project-level operation like `build`, not a query or doc tool.\n\n```python\n@mcp.tool()\ndef cortex_checkout(project_root: str, worktree_path: str) -> str:\n    \"\"\"Copy the cortex DB into a worktree via VACUUM INTO.\n\n    Produces an atomic, consistent snapshot of the source index —\n    safe regardless of WAL state or concurrent writes. The target\n    directory must exist; it does not need to be a git worktree.\n\n    If the target DB already exists, returns a skip warning. Delete\n    the target DB manually to force a fresh copy.\n\n    Parameters\n    ----------\n    project_root:\n        Absolute path to the source project (must have .cortex/cortex.db).\n    worktree_path:\n        Absolute path to the target directory. A .cortex/ subdirectory\n        will be created if needed.\n    \"\"\"\n    try:\n        source = _require_db(project_root)\n        target_dir = Path(worktree_path).resolve()\n        if not target_dir.is_dir():\n            return f\"ERROR: Target directory does not exist: {target_dir}\"\n        target = target_dir / \".cortex\" / \"cortex.db\"\n        if target.exists():\n            return (\n                f\"DB already exists at {target}, skipping. \"\n                \"Delete it manually to force a fresh copy.\"\n            )\n        db.vacuum_into(source, target)\n        return f\"Copied cortex DB to {target}\"\n    except Exception:\n        raise\n```\n\nFollows existing patterns:\n- `_require_db()` for source validation (raises `FileNotFoundError` if missing)\n- Input validation returns `\"ERROR: ...\"` strings (user errors, not exceptions)\n- Unexpected exceptions re-raised for FastMCP structured error propagation (per ADR-011)\n- Google-style docstring with Parameters section for MCP tool description extraction\n- **No `--force` equivalent** — the MCP tool intentionally has no overwrite capability, keeping it safe for automated orchestration"
+            },
+            {
+              "id": "cli-command",
+              "heading": "CLI Command: cortex checkout",
+              "content": "Add to `cortex/cli.py`. Place it after `cmd_build` (line ~150) as a peer of other project-level commands.\n\n```python\n@main.command(\"checkout\")\n@click.argument(\"worktree_path\", type=click.Path(exists=True, file_okay=False))\n@click.option(\"--project-root\", \"-p\", default=\".\", type=click.Path(exists=True),\n              help=\"Source project root (default: current directory)\")\n@click.option(\"--force\", \"-f\", is_flag=True, default=False,\n              help=\"Overwrite existing target DB instead of skipping.\")\ndef cmd_checkout(worktree_path: str, project_root: str, force: bool) -> None:\n    \"\"\"Copy the cortex DB into WORKTREE_PATH via VACUUM INTO.\"\"\"\n    root = Path(project_root).resolve()\n    source = _require_db(root)\n    target_dir = Path(worktree_path).resolve()\n    target = target_dir / \".cortex\" / \"cortex.db\"\n    if target.exists():\n        if force:\n            target.unlink()\n        else:\n            click.echo(\n                f\"DB already exists at {target}, skipping. \"\n                \"Delete it manually or use --force to overwrite.\"\n            )\n            return\n    db.vacuum_into(source, target)\n    click.echo(f\"Copied cortex DB to {target}\")\n```\n\nKey details:\n- `click.Path(exists=True, file_okay=False)` validates the worktree directory exists before the function body runs\n- Uses the same `_require_db()` helper as other CLI commands\n- **`--force` flag (CLI only):** When set, deletes the existing target DB before copying. This is a convenience for human developers. The MCP tool intentionally does NOT have this flag — automated orchestrators should never accidentally overwrite an in-use Builder DB.\n- Without `--force`, the skip-if-exists behavior matches the MCP tool exactly\n- Skip message updated to mention `--force` as an alternative to manual deletion\n- Imports `db` from `cortex.index` (already imported at the top of cli.py)"
+            },
+            {
+              "id": "edge-cases",
+              "heading": "Edge Cases and Error Handling",
+              "content": "1. **Source DB missing** — `_require_db()` raises `FileNotFoundError`. MCP: propagated as structured error. CLI: Click catches and shows message.\n\n2. **Target directory does not exist** — MCP tool returns `\"ERROR: Target directory does not exist: {path}\"`. CLI: Click validates via `exists=True` before function runs.\n\n3. **Target DB already exists (no --force)** — Both MCP and CLI return a skip warning string. No overwrite, no error. User must delete manually or use `--force` (CLI only).\n\n4. **Target DB already exists (--force, CLI only)** — `target.unlink()` deletes the existing DB, then `vacuum_into` writes a fresh copy.\n\n5. **Target `.cortex/` directory does not exist** — `vacuum_into()` creates it via `mkdir(parents=True, exist_ok=True)`.\n\n6. **Source DB locked by concurrent writer** — `_connect()` uses `timeout=5` (ADR-011). `VACUUM INTO` acquires a read lock, which in WAL mode never blocks writers and is never blocked by writers. This is a non-issue.\n\n7. **Disk full during VACUUM INTO** — SQLite raises `sqlite3.OperationalError`. The MCP tool re-raises, the CLI lets it propagate to Click's error handler. No partial file cleanup is needed — SQLite handles this internally.\n\n8. **Path with single quotes** — `vacuum_into()` raises `ValueError` with a clear message before executing SQL. This is a one-line guard that turns a confusing SQLite syntax error into an actionable message.\n\n9. **Same path as source** — `VACUUM INTO` to the same file would fail at the SQLite level. This is an obscure edge case and the SQLite error message is clear enough. No special guard needed."
+            }
+          ]
+        },
+        {
+          "id": "constraints",
+          "heading": "Constraints",
+          "content": "**Non-negotiable:**\n- Use `VACUUM INTO` (not file copy) for WAL-safe atomic snapshots.\n- MCP tool must NOT overwrite an existing target DB — return a skip message instead. No `--force` on MCP.\n- CLI gets a `--force` flag for human convenience; without it, skip-if-exists matches MCP behavior.\n- `vacuum_into()` must reject paths containing single quotes with `ValueError` before executing SQL.\n- Follow existing error handling patterns: MCP tools re-raise unexpected exceptions (ADR-011), input validation returns `\"ERROR: ...\"` strings.\n- Follow Google-style docstrings.\n- The `vacuum_into` function must use the existing `_connect()` context manager from `cortex/index/db.py`.\n- Use native OS path separators (no POSIX normalization) — SQLite handles this correctly on all platforms.\n\n**Trade-offs:**\n- `--force` is CLI-only. The MCP tool has no overwrite capability, keeping it safe for automated orchestration. An orchestrator bug cannot accidentally overwrite a Builder's live DB.\n- Single-quote paths are rejected outright rather than escaped. Such paths are invalid on Windows and extremely rare on Unix. A clear `ValueError` is better than SQL-level escaping complexity.\n\n**Test budget:** 6-8 tests covering: successful copy produces valid readable DB, skip-if-exists, force overwrite (CLI), source DB missing, target directory missing, single-quote path rejection, MCP tool integration, CLI command integration."
+        },
+        {
+          "id": "affected-nodes",
+          "heading": "Affected Nodes",
+          "content": "| Node ID | File | Lines | Change Detail |\n|---|---|---|---|\n| `cortex::cortex.index.db` | `cortex/index/db.py` | after L312 | Add `vacuum_into(source_db_path: Path, target_db_path: Path) -> None`. Single-quote guard, creates target parent dir, opens source via `_connect()`, runs `VACUUM INTO '{target}'`. ~10 lines. |\n| `cortex::cortex.mcp_server` | `cortex/mcp_server.py` | after L233 (after `cortex_build`) | Add `cortex_checkout(project_root: str, worktree_path: str) -> str`. Validates source via `_require_db()`, validates target dir exists, checks target DB doesn't exist, calls `db.vacuum_into()`. No `--force`. ~25 lines including docstring. |\n| `cortex::cortex.cli` | `cortex/cli.py` | after L150 (after `cmd_build`) | Add `cmd_checkout(worktree_path: str, project_root: str, force: bool) -> None`. Click command with `@main.command(\"checkout\")`, `@click.argument(\"worktree_path\")`, `@click.option(\"--project-root\")`, `@click.option(\"--force\")`. ~20 lines. |\n| (new) `cortex::tests.test_checkout` | `tests/test_checkout.py` | new file | 6-8 tests: vacuum_into produces valid DB, skip-if-exists, force overwrite (CLI), source missing, target dir missing, single-quote path rejection, MCP tool smoke test, CLI smoke test. |"
+        },
+        {
+          "id": "changelog-draft",
+          "heading": "Changelog Draft",
+          "content": "```\n## [Unreleased]\n\n### Added\n- `cortex_checkout` MCP tool: copy the cortex DB into a worktree via VACUUM INTO (atomic, WAL-safe snapshot)\n- `cortex checkout` CLI command: same functionality from the command line\n- `db.vacuum_into()` helper in the DB layer for atomic DB copies\n\nstatus: planned\n```"
+        }
+      ]
+    },
+    {
+      "id": "change-set",
+      "heading": "Change Set",
+      "content": "(To be filled by Orchestrator after Builder merge)"
+    },
+    {
+      "id": "builder",
+      "heading": "Builder Manifest",
+      "content": "(To be filled by Orchestrator from Builder return)"
+    },
+    {
+      "id": "auditor",
+      "heading": "Auditor Impact Report",
+      "content": "(To be filled by Auditor)"
+    }
+  ]
+}

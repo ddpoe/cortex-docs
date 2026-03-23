@@ -1,0 +1,35 @@
+{
+  "title": "PRD: Auto-Slug Section IDs",
+  "tags": [
+    "prd",
+    "proposed",
+    "viz",
+    "doc-manager",
+    "ux"
+  ],
+  "sections": [
+    {
+      "id": "problem",
+      "heading": "Problem Statement",
+      "content": "When users add sections in the doc manager, section IDs are generated as `new-section-{timestamp}` — nonsensical identifiers like `new-section-1774098134405`. These IDs persist into the DocJSON file and cortex index, making it hard to reference sections by ID in MCP tools or understand document structure from node listings. There is no way to edit a section's ID after creation."
+    },
+    {
+      "id": "user-stories",
+      "heading": "User Stories",
+      "content": "**US-AS-01 — Auto-generated slug from title**\nAs a developer, I want section IDs to be automatically generated as kebab-case slugs from the heading so that IDs are meaningful without manual effort.\n\n**US-AS-02 — Preview and edit slug before saving**\nAs a developer, I want to see the auto-generated slug inline and be able to edit it so that I can override the default when a shorter or clearer ID is appropriate.\n\n**US-AS-03 — Auto-slug stays in sync with title**\nAs a developer, I want auto-generated slugs to update when I change the heading so that they stay relevant — but only if I haven't manually edited the slug.\n\n**US-AS-04 — Duplicate slug validation**\nAs a developer, I want the doc manager to block saving when two sections have the same slug so that I don't accidentally create ID collisions.\n\n**US-AS-05 — Empty heading validation**\nAs a developer, I want the doc manager to block saving when a section heading has been cleared to empty so that every section has a usable name."
+    },
+    {
+      "id": "current-capabilities",
+      "heading": "Current Capabilities",
+      "content": "| Capability | Status |\n|---|---|\n| Auto-slug generation from heading (kebab-case, truncated) | Done |\n| Inline slug display (idle: plain text, active: editable input) | Done |\n| AUTO badge for machine-generated slugs | Done |\n| `slug_auto` metadata flag in DocJSON sections | Done |\n| Slug re-sync on title change (only when slug_auto=true) | Done |\n| Duplicate slug validation on save | Done |\n| Empty heading validation on save | Done |\n| Duplicate slug validation in slug edit mode (live check) | Done |"
+    },
+    {
+      "id": "backlog",
+      "heading": "Backlog",
+      "tags": [
+        "backlog"
+      ],
+      "content": "**Bulk slug cleanup** — Existing docs with `new-section-*` IDs could benefit from a bulk rename tool that auto-slugifies all timestamp-based section IDs. This would be a one-time migration utility, not a core feature.\n\n**Slug format enforcement in MCP tools** — Currently `cortex_add_section` accepts any string as a section ID. Could add validation to enforce kebab-case-only slugs at the MCP layer too, but agents are expected to provide good IDs directly."
+    }
+  ]
+}

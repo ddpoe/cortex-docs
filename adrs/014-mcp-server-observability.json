@@ -1,0 +1,80 @@
+{
+  "title": "ADR-014: MCP Server and Core Engine Observability",
+  "tags": [
+    "adr",
+    "observability",
+    "logging",
+    "mcp-server"
+  ],
+  "sections": [
+    {
+      "id": "status",
+      "heading": "Status",
+      "content": "**Status:** Proposed\n\n**Date:** 2026-03-21\n\n**Decider:** Dante\n\n**Related:** ADR-011 (SQLite Concurrency Resilience) addressed lock timeouts and structured MCP errors. This ADR addresses the next gap: when operations are slow or hang, there is no diagnostic output to identify the cause."
+    },
+    {
+      "id": "context",
+      "heading": "Context & Problem Statement",
+      "content": "When `cortex_build` was called via the MCP server, it hung indefinitely with no indication of where it was stuck. Investigation revealed three compounding gaps:\n\n**1. `mcp_server.py` has zero logging.** Not a single `import logging`. When a tool call takes 30 seconds or hangs, the only signal is silence. There is no way to distinguish \"still scanning files\" from \"blocked on SQLite lock\" from \"subprocess waiting for git\".\n\n**2. Core engine logging is warnings-only.** `builder.py` has a logger but only emits `logger.warning()` for scanner errors and purge activity. No timing, no progress milestones, no phase boundaries. A build that scans 200 files and computes staleness for 300 nodes reports nothing until it either finishes or fails.\n\n**3. ~20 `except Exception: pass` sites silently swallow errors.** Across `doc_scanner.py`, `json_doc_scanner.py`, `module_scanner.py`, `builder.py`, `diff.py`, and `mcp_server.py`, exception handlers catch errors and either return empty results or continue silently. An entire doc directory can fail to parse, dFlow edge imports can fail completely, and git subprocess calls can error — all without any trace.\n\n**4. 6 subprocess calls have no timeout.** `diff.py` runs `git show`, `git log`, and `git ls-tree` with no timeout. `cli.py` runs `git rev-parse HEAD` with no timeout. These can hang indefinitely on Windows, on network drives, or when git prompts for auth. By contrast, `runner.py::get_git_sha` already has a 5-second timeout — proving the pattern is known but inconsistently applied.\n\n**5. SQLite lock contention is invisible.** ADR-011 added `timeout=5` to `_connect()`, so writers wait up to 5 seconds for the lock. But if a lock wait succeeds after 3 seconds, nothing is logged. Slow lock acquisition — the early warning sign of contention problems — is completely invisible.",
+      "links": [
+        {
+          "node_id": "cortex::cortex.mcp_server"
+        },
+        {
+          "node_id": "cortex::cortex.index.builder::build"
+        },
+        {
+          "node_id": "cortex::cortex.index.db::_connect"
+        },
+        {
+          "node_id": "cortex::cortex.index.staleness::compute_staleness"
+        }
+      ]
+    },
+    {
+      "id": "decision",
+      "heading": "The Decision",
+      "content": "Add structured logging to the MCP server and core engine, implemented in five layers ordered by diagnostic value. Each layer is independently useful — implement layer 1 first and stop at any point.\n\n### Logging infrastructure\n\n**Logger per module.** Each file gets `logger = logging.getLogger(__name__)`. No global config in library code — the MCP server entry point (`run()`) and CLI entry point configure the root handler.\n\n**Stderr for MCP, stdout for CLI.** The MCP server communicates over stdio, so all logging MUST go to stderr. The CLI can log to stdout (interleaved with output) or stderr (if `--quiet` is desired). The entry points configure this:\n\n```python\n# mcp_server.py::run()\nlogging.basicConfig(\n    level=logging.INFO,\n    stream=sys.stderr,\n    format=\"%(asctime)s %(name)s %(levelname)s %(message)s\",\n)\n```\n\n**Log levels:**\n- `DEBUG` — SQLite query traces, per-file scan details, hash comparisons\n- `INFO` — tool entry/exit with timing, build phase milestones, connection timing > 100ms\n- `WARNING` — silent-exception upgrades (the ~20 `except: pass` sites), lock waits > 1s, subprocess timeouts\n- `ERROR` — operation failures that are returned/raised to the caller\n\n**Environment variable override.** `CORTEX_LOG_LEVEL=DEBUG` overrides the default `INFO`. This lets users get verbose output without code changes. The entry point reads `os.environ.get(\"CORTEX_LOG_LEVEL\", \"INFO\")`.\n\n### Subprocess timeout policy\n\nAll `subprocess.run` calls MUST have a `timeout` parameter. Default: 10 seconds for git commands, 120 seconds for test runners. `stdin=subprocess.DEVNULL` on all calls (ADR-011 Step 2 already applied this).\n\n### Exception handling policy\n\nNo bare `except Exception: pass` or `except Exception: return default`. Every exception handler must either:\n1. `logger.warning(\"context: %s\", exc)` then continue/return default, OR\n2. Re-raise\n\nThe choice depends on whether the caller can tolerate the failure. Scanner per-file errors should log and continue (one bad file shouldn't abort the build). Connection failures should raise (the caller needs to know).",
+      "links": [
+        {
+          "node_id": "cortex::cortex.mcp_server::run"
+        }
+      ]
+    },
+    {
+      "id": "implementation-layers",
+      "heading": "Implementation Layers",
+      "content": "### Layer 1 — MCP server tool timing + `_connect` lock timing\n\n**Scope:** `mcp_server.py`, `db.py`\n\n**`mcp_server.py`:** Add `logger = logging.getLogger(__name__)`. In `run()`, configure `logging.basicConfig(level=INFO, stream=stderr)`. Add timing to every tool function:\n\n```python\ndef cortex_build(project_root, verbose=False):\n    logger.info(\"cortex_build start: %s\", project_root)\n    t0 = time.monotonic()\n    # ... existing code ...\n    logger.info(\"cortex_build done in %.2fs\", time.monotonic() - t0)\n```\n\nThis is mechanical — every public tool function gets the same pattern.\n\n**`db.py::_connect`:** Log lock acquisition timing when it exceeds a threshold:\n\n```python\n@contextmanager\ndef _connect(db_path):\n    t0 = time.monotonic()\n    conn = sqlite3.connect(db_path, timeout=5)\n    wait = time.monotonic() - t0\n    if wait > 0.1:\n        logger.warning(\"SQLite lock acquired after %.2fs: %s\", wait, db_path)\n    # ... existing code ...\n```\n\n**Value:** Would have diagnosed the MCP build hang immediately — stderr would show exactly which phase the tool was stuck in.\n\n### Layer 2 — Subprocess timeouts\n\n**Scope:** `diff.py`, `cli.py`\n\nAdd `timeout=10` to the 6 `subprocess.run` calls that currently have no timeout:\n\n| File | Function | Command | Proposed timeout |\n|---|---|---|---|\n| `diff.py` | `get_node_diff` | `git show {sha}:{path}` | 10s |\n| `diff.py` | `get_node_diff` | `git log -1 --format=...` | 10s |\n| `diff.py` | `get_doc_diff` | `git ls-tree {sha} docs` | 10s |\n| `diff.py` | `get_doc_diff` | `git show {sub_sha}:{path}` | 10s |\n| `cli.py` | `cmd_build` | `git rev-parse HEAD` | 5s |\n| `cli.py` | `cmd_test` | full pytest run | 300s |\n\nWhen `subprocess.TimeoutExpired` fires, log at WARNING and return the appropriate fallback (None, empty string, etc.).\n\n### Layer 3 — Silent exception upgrades\n\n**Scope:** All ~20 `except Exception: pass` sites across `doc_scanner.py`, `json_doc_scanner.py`, `module_scanner.py`, `builder.py`, `diff.py`, `mcp_server.py`\n\nMechanical transformation: replace `pass` or `return default` with `logger.warning(\"context: %s\", exc)` followed by the same default return. No behavior change — just visibility.\n\nHighest priority sites (complete subsystem failures):\n- `doc_scanner.py:67` — per-file markdown scan error\n- `json_doc_scanner.py:113` — per-file JSON doc scan error\n- `builder.py:463` — entire dFlow coverage link import\n- `module_scanner.py:849` — entire dFlow edge import\n\n### Layer 4 — Builder and staleness progress milestones\n\n**Scope:** `builder.py::build()`, `staleness.py::compute_staleness()`\n\nAdd `logger.info` at phase boundaries in `build()`:\n- \"Scanning {N} Python files...\"\n- \"Scanning docs directory...\"\n- \"Scanning config files...\"\n- \"Upserting {N} nodes, {M} edges...\"\n- \"Running purge pass...\"\n- \"Materializing dFlow coverage...\"\n\nAdd `logger.info` at step boundaries in `compute_staleness()`:\n- \"Staleness: categorized {N} nodes ({M} files to check)\"\n- \"Staleness: per-file checks done in {T}s ({N} re-parsed)\"\n- \"Staleness: linked-stale + inheritance done\"\n\nThis turns a silent 30-second operation into a stream of progress updates.\n\n### Layer 5 — Configurable SQLite query tracing\n\n**Scope:** `db.py::_connect`\n\nWhen `CORTEX_LOG_LEVEL=DEBUG`, enable SQLite's trace callback:\n\n```python\nif logger.isEnabledFor(logging.DEBUG):\n    conn.set_trace_callback(lambda sql: logger.debug(\"SQL: %s\", sql[:200]))\n```\n\nTruncate at 200 chars to prevent log explosion from large INSERT values. Only enabled at DEBUG level — invisible in normal operation.\n\nThis is the nuclear option for diagnosing lock contention: you see every SQL statement and can identify exactly which query was the last one before a hang.",
+      "links": [
+        {
+          "node_id": "cortex::cortex.mcp_server::cortex_build"
+        },
+        {
+          "node_id": "cortex::cortex.index.db::_connect"
+        },
+        {
+          "node_id": "cortex::cortex.index.builder::build"
+        },
+        {
+          "node_id": "cortex::cortex.index.staleness::compute_staleness"
+        },
+        {
+          "node_id": "cortex::cortex.diff::get_node_diff"
+        },
+        {
+          "node_id": "cortex::cortex.diff::get_doc_diff"
+        }
+      ]
+    },
+    {
+      "id": "accessing-logs",
+      "heading": "Accessing Logs",
+      "content": "**MCP server (Claude Code):** MCP server stderr is captured by Claude Code. Use `--mcp-debug` flag to see raw MCP traffic and stderr in the terminal. Without this flag, stderr is available in Claude Code's MCP log files.\n\n**CLI:** Logs go to stderr by default. Use `CORTEX_LOG_LEVEL=DEBUG cortex build` for verbose output.\n\n**Structured JSON logging (future):** If machine-parseable logs become needed (e.g., for a log viewer in viz), add a `CORTEX_LOG_FORMAT=json` option that switches the formatter to `json.dumps({\"ts\": ..., \"level\": ..., \"msg\": ..., \"module\": ...})`. Not needed for Layer 1 — human-readable is fine for diagnostics."
+    },
+    {
+      "id": "consequences",
+      "heading": "Consequences",
+      "content": "**Positive:**\n- MCP tool hangs are immediately diagnosable via stderr\n- Lock contention becomes visible before it causes failures\n- Silent subsystem failures (~20 sites) become WARNING-level log entries\n- Subprocess hangs are bounded by timeouts instead of hanging indefinitely\n- Build and staleness operations emit progress, enabling rough performance profiling\n- `CORTEX_LOG_LEVEL=DEBUG` provides deep diagnostics without code changes\n\n**Negative:**\n- Adds `import logging, time` and ~2 lines per tool function in `mcp_server.py` (~40 lines total)\n- `logger.warning` in exception handlers adds noise when failures are expected and harmless (e.g., no dFlow DB present). Mitigate: use `logger.debug` for truly expected failures like missing optional databases.\n- SQLite query tracing at DEBUG level can produce hundreds of log lines during a build. Mitigate: only enabled when `CORTEX_LOG_LEVEL=DEBUG`, truncated to 200 chars.\n\n**Neutral:**\n- No performance impact at INFO level — `logging` module short-circuits disabled levels before formatting\n- No schema changes, no data model changes\n- No changes to tool interfaces or return values\n- Layers are independent — partial implementation is stable"
+    }
+  ]
+}

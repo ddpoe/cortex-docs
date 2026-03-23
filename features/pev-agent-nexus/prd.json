@@ -1,0 +1,73 @@
+{
+  "title": "PRD: PEV Agent Nexus",
+  "tags": [
+    "pev",
+    "prd"
+  ],
+  "sections": [
+    {
+      "id": "problem",
+      "heading": "Problem Statement",
+      "content": "AI-assisted development currently runs as a single undifferentiated pass: one agent plans, codes, documents, and verifies in the same context. This produces three failure modes:\n\n1. **No planning gate.** The agent starts coding before the human approves an approach. Wrong approaches waste compute and context.\n2. **Invisible deviations.** When an agent deviates from a plan, the deviation is buried in chat. There is no structured artifact that says \"I changed X because Y, and this affects Z.\"\n3. **Documentation drift.** After code is written, docs are either skipped or bolted on without checking consistency. Staleness accumulates silently.\n\nThe PEV Agent Nexus separates development into three structurally enforced phases — Planning, Execution, Validation — with human approval gates, distinct tool permissions, and an automated verification loop powered by Cortex's staleness engine."
+    },
+    {
+      "id": "user-stories",
+      "heading": "User Stories",
+      "content": "",
+      "sections": [
+        {
+          "id": "planning",
+          "heading": "Planning Phase",
+          "content": "**US-PN-01:** As a developer, I want the Architect to read my existing codebase and docs via Cortex before proposing a pitch, so the pitch is grounded in what actually exists.\n\n**US-PN-02:** As a developer, I want the Architect's output to define a coarse module-level scope boundary and solution sketch, so I can review the approach without being constrained by prescriptive implementation details.\n\n**US-PN-03:** As a developer, I want a human approval gate between planning and execution, so I can reject or modify the pitch before committing compute.\n\n**US-PN-04:** As a developer, I want the Architect to write pitches to the cycle manifest instead of touching live feature docs, so feature docs always reflect what actually exists — not what's planned.\n\n**US-PN-05:** As a developer, I want to resume an interrupted PEV session by running `/pev` and seeing my active cycles, so I don't lose planning work if I cancel mid-session."
+        },
+        {
+          "id": "execution",
+          "heading": "Execution Phase",
+          "content": "**US-EX-01:** As a developer, I want the Builder to write an Implementation Manifest to the cycle manifest alongside code, so I can see structured deviations rather than hunting through chat.\n\n**US-EX-02:** As a developer, I want the Builder to have no access to doc-writing tools, so it cannot silently update documentation to match its deviations.\n\n**US-EX-03:** As a developer, I want `planned` tags to transition to `in_progress` when the Builder starts, so I can track which nodes are actively being worked on.\n\n**US-EX-04:** As a developer, I want the Builder to run in an isolated worktree with a copied cortex DB (`cortex checkout`), so it can search the codebase without modifying the index and its changes cannot collide with my manual edits."
+        },
+        {
+          "id": "validation",
+          "heading": "Validation Phase",
+          "content": "**US-VL-01:** As a developer, I want the Auditor to review every stale node after the Builder finishes, marking each as clean or flagging it — so I don't manually chase drift.\n\n**US-VL-02:** As a developer, I want `mark_clean` and tag removal to be two separate actions, so the Auditor explicitly confirms both \"content is accurate\" and \"this node is done in this PEV cycle.\"\n\n**US-VL-03:** As a developer, I want the Auditor to check whether modified code needs logging per ADR-014, so observability gaps don't slip through.\n\n**US-VL-04:** As a developer, I want the Auditor to audit tests against the annotation policy and flag excessive test counts, so the Builder doesn't generate 20 tests for a 3-function change.\n\n**US-VL-05:** As a developer, I want only the Auditor to have `mark_clean` authority, so every verification is a deliberate judgment by the review phase."
+        },
+        {
+          "id": "lifecycle",
+          "heading": "Tag Lifecycle & Failure Recovery",
+          "content": "**US-LC-01:** As a developer, I want the cycle manifest's tags to follow a deterministic lifecycle (`pev-active` at start, `planned` after Architect, `in_progress` during Builder, removed on completion), so I always know where the cycle stands.\n\n**US-LC-02:** As a developer, I want the orchestrator to update the cycle manifest status to `incomplete` when the Builder fails, so I can see unfinished cycles and decide whether to resume or start fresh. Unbuilt capabilities are recorded as deviations in the Builder's manifest, not as tag states.\n\n**US-LC-03:** As a developer, I want `incomplete` cycles to be visible in the viz via the `pev-active` tag query, so I can decide whether to retry or manually resolve them."
+        }
+      ]
+    },
+    {
+      "id": "requirements",
+      "heading": "Requirements",
+      "content": "",
+      "sections": [
+        {
+          "id": "orchestration",
+          "heading": "Orchestration",
+          "content": "- `/pev` skill invokes the orchestrator\n- Three phases: Architect → Builder → Auditor\n- Human approval gates between each phase\n- Conditional Auditor → Builder loopback (max 2x) for `needs_fix` items\n- Single commit at the end after all phases complete and human approves\n- Orchestrator creates cycle manifest doc at start (`docs/pev-cycles/{cycle-id}.json`)\n- Orchestrator owns tag transitions: `planned` → `in_progress`, and `incomplete` on failure\n- Orchestrator runs `cortex_checkout` to copy DB to worktree before Builder dispatch\n- Resume flow: on `/pev` start, check for `pev-active` tagged cycles and offer resume/release/new\n- Post-merge: `cortex_build` + `cortex_check` on main (existing tools, no merge-check needed)"
+        },
+        {
+          "id": "tool-enforcement",
+          "heading": "Tool Enforcement",
+          "content": "- Each agent has structurally enforced tool permissions — not prompt-based\n- No single agent can both write code AND write documentation\n- Only the Auditor can `mark_clean` and remove tags\n- The Builder cannot see doc-write tools\n- The Architect cannot see code-write tools"
+        },
+        {
+          "id": "tag-lifecycle",
+          "heading": "Tag Lifecycle",
+          "content": "Tags are on the **cycle manifest doc** (not on shared feature docs). This isolates parallel cycles. Lifecycle:\n\n| Phase | Who | Tag | Trigger |\n|---|---|---|---|\n| Cycle start | Orchestrator | `pev-active` | Cycle manifest created |\n| Planning | Architect | `planned` | Architect identifies affected nodes in scope |\n| Handoff | Orchestrator | `in_progress` | Before dispatching Builder |\n| Builder completes | *(no change)* | `in_progress` | Stays until Auditor reviews |\n| Auditor approves | Auditor | *(removed)* | Two actions: `mark_clean` then remove tag |\n| Cycle completes | Orchestrator | `pev-active` removed | After final commit |\n| Builder fails | Orchestrator | status → `incomplete` | `pev-active` stays; status updated in manifest |\n\n`pev-active` means \"this cycle hasn't been closed out.\" It persists through failure so the resume flow (`cortex_list(tag=\"pev-active\")`) can find both active and incomplete cycles. Only completion and explicit release remove it.\n\nUnbuilt capabilities (items the Architect planned but the Builder didn't implement) are tracked as deviations in the Builder's implementation manifest, not as tag states. The Auditor reviews these deviations during validation."
+        },
+        {
+          "id": "auditor-checks",
+          "heading": "Auditor Review Checks",
+          "content": "The Auditor performs these checks during validation:\n\n1. **Staleness review** — Review every stale node; mark clean or flag\n2. **Agent-verified audit** — Re-check any `AGENT_VERIFIED` nodes\n3. **Test gap detection** — Flag changed code nodes with no `validates` edge\n4. **Test annotation audit** — Verify tier assignment and flag excessive test counts per the test budget policy\n5. **Logging audit** — Check if modified code needs logging per ADR-014 patterns (judgment, not automated)\n6. **Unlinked public nodes** — Find undocumented public entry points\n7. **Workflow step markers** — Audit dFlow markers on key multi-step functions\n8. **Checkpoint** — Create a reference point after review completes"
+        }
+      ]
+    },
+    {
+      "id": "non-goals",
+      "heading": "Non-Goals (V1)",
+      "content": "- **Multi-model routing.** V1 uses one model for all agents.\n- **Parallel agent execution.** Agents run sequentially; parallel breaks the approval gate contract.\n- **Automatic PR creation.** Code stays local; pushing/branching is manual.\n- **CI/CD integration.** PEV is invoked manually via `/pev`.\n- **Automatic test generation.** The Auditor flags gaps; the Builder writes tests on loopback."
+    }
+  ]
+}

@@ -1,0 +1,82 @@
+{
+  "title": "Template: PEV Cycle Manifest",
+  "sections": [
+    {
+      "id": "purpose",
+      "heading": "Purpose",
+      "content": "This template is copied by the orchestrator when creating a new PEV cycle manifest at `docs/pev-cycles/{cycle-id}.json`. Each section contains instructions the agent replaces with real content. The orchestrator creates the doc from this template, fills `status` and `request`, then dispatches the Architect to fill `scope` and `architect`.\n\nCycle ID format: `pev-YYYY-MM-DD-{slugified-purpose}` (e.g., `pev-2026-03-21-add-history-filtering`). Slug: lowercase, hyphens, truncated to 40 chars. Orchestrator checks `docs/pev-cycles/` for collisions; appends `-2`, `-3` if needed."
+    },
+    {
+      "id": "status",
+      "heading": "Status",
+      "content": "**Filled by:** Orchestrator — created at start, updated at every phase transition.\n\n**Example:**\n```\nPhase: planning\nBaseline SHA: abc1234def5678\nStarted: 2026-03-21T14:30:00Z\nCycle ID: pev-2026-03-21-add-history-filtering\n\nPhase transitions:\n- planning: 2026-03-21T14:30:00Z — cycle created\n- builder: 2026-03-21T15:00:00Z — plan approved\n- auditor: 2026-03-21T16:30:00Z — code approved, merged\n- commit-ready: 2026-03-21T17:00:00Z — audit approved\n- completed: 2026-03-21T17:05:00Z — commit abc1234\n```\n\n**Instructions:** Update this section at every phase transition. Append each transition with timestamp. `baseline_sha` is main HEAD at cycle start — all diffs reference this. On completion, add commit SHA. On failure, set phase to `incomplete` with reason."
+    },
+    {
+      "id": "request",
+      "heading": "Request",
+      "content": "**Filled by:** Orchestrator — at cycle start.\n\n**Example:**\n```\nAdd a history endpoint that supports filtering by date range\n```\n\n**Instructions:** Paste the user's original `/pev` prompt verbatim. Do not summarize or rephrase."
+    },
+    {
+      "id": "scope",
+      "heading": "Scope",
+      "content": "**Filled by:** Architect — during planning phase.\n\n**Example:**\n```\nModules affected: history subsystem (cortex.history), MCP server (cortex.mcp_server).\n\nScope decision: Single-feature change targeting the history subsystem.\n```\n\n**Instructions:** Describe the scope as a coarse boundary — which modules and subsystems are involved. Do NOT list per-function changes. State the scope decision: single-feature (targets one feature tree) or cross-cutting (3+ features → reference or propose ADR). The Auditor uses `cortex_check` and the Builder's change-set to determine review scope empirically, not this list."
+    },
+    {
+      "id": "architect",
+      "heading": "Architect Plan",
+      "content": "**Filled by:** Architect — when planning is complete. This is a Shape Up-style pitch: orientation and boundaries for the Builder, not a prescriptive implementation spec.\n\n**Sub-sections to create:**\n\n### Problem\nWhat is being solved and why. 2-3 sentences. Ground it in the actual codebase — reference specific current behavior that's insufficient.\n\n### User Stories\n3-5 coarse outcomes that define \"done\" for this cycle. Format: \"As a [role], I want [action], so that [value].\" These are the acceptance criteria — when these things work, the cycle is done. Not a fine-grained capabilities checklist.\n\n### Solution Sketch\nFat-marker description of the approach at module level. Enough to show feasibility and orient the Builder on roughly WHERE and WHAT, but not enough to dictate HOW. If you're specifying function signatures, parameter names, or code snippets — you've gone too far.\n\n### Constraints\nRabbit holes (don't go here), no-gos (explicitly out of scope), trade-offs accepted, test budget guidance (5-10 focused tests per subsystem change). This section sets boundaries the Builder must respect.\n\n### Continuation Checkpoint\n**Only present if the Architect hit the context leash.** Written by the orchestrator from the Architect's return.\n\n**Example:**\n```\n### Continuation (incarnation 1)\nCompleted:\n- Scope decision: single-feature (history subsystem)\n- scope section written\n- architect.problem written\n- architect.user-stories written\n\nIn progress:\n- architect.solution-sketch — approach described, key decisions remaining\n\nRemaining:\n- architect.constraints\n\nKey decisions so far:\n- Filter applied as WHERE clause on recorded_at (already indexed)\n- No schema changes needed\n```",
+      "sections": [
+        {
+          "id": "problem",
+          "heading": "Problem",
+          "content": "(Architect replaces this with the problem statement)"
+        },
+        {
+          "id": "user-stories",
+          "heading": "User Stories",
+          "content": "(Architect replaces this with scoped user stories)"
+        },
+        {
+          "id": "capabilities",
+          "heading": "Capabilities",
+          "content": "(Architect replaces this with capabilities table)"
+        },
+        {
+          "id": "design",
+          "heading": "Design",
+          "content": "(Architect replaces this with technical design)"
+        },
+        {
+          "id": "constraints",
+          "heading": "Constraints",
+          "content": "(Architect replaces this with constraints and trade-offs)"
+        },
+        {
+          "id": "affected-nodes",
+          "heading": "Affected Nodes",
+          "content": "(Architect replaces this with affected node table)"
+        },
+        {
+          "id": "changelog-draft",
+          "heading": "Changelog Draft",
+          "content": "(Architect replaces this with draft changelog entry)"
+        }
+      ]
+    },
+    {
+      "id": "change-set",
+      "heading": "Change Set",
+      "content": "**Filled by:** Orchestrator — after Builder merge, before Auditor dispatch.\n\n**Example:**\n```\nPlanned nodes (from Architect scope):\n- cortex::cortex.history::get_history_since\n- cortex::cortex.mcp_server::cortex_history\n\nActual files changed (from git diff {baseline_sha}..HEAD):\n- cortex/history.py\n- cortex/mcp_server.py\n- tests/test_history_filtering.py\n\nBuilder deviations:\n- None reported\n```\n\n**Instructions:** Orchestrator constructs this from: (1) Architect's `scope` section node IDs, (2) `git diff --name-only {baseline_sha}..HEAD`, (3) Builder's returned deviations. The Auditor reads this to categorize stale nodes as `expected` (in this set) vs `collateral` (not in this set)."
+    },
+    {
+      "id": "builder",
+      "heading": "Builder Manifest",
+      "content": "**Filled by:** Orchestrator — writes the Builder's returned manifest after implementation.\n\nThe Builder returns this as structured data in its subagent completion message. The orchestrator writes it here verbatim.\n\n**Example:**\n```json\n{\n  \"deviations\": [],\n  \"files_changed\": [\"cortex/history.py\", \"cortex/mcp_server.py\"],\n  \"tests_added\": [\"tests/test_history_filtering.py\"],\n  \"tests_passed\": true\n}\n```\n\n**Instructions:** If the Builder reports deviations, each has: `spec_requirement` (what was planned), `actual` (what was built), `reason` (why it changed), `affected_nodes` (cortex node IDs). If tests failed, include failure details.\n\n### Continuation Checkpoint\n**Only present if the Builder hit the context leash.** Written by the orchestrator from the Builder's return. The fresh incarnation is dispatched to the same worktree — code on disk is the state.\n\n**Example:**\n```\n### Continuation (incarnation 1)\nCompleted:\n- Capability 1: Date range filter — Done, tests pass (test_date_range_filter)\n- Capability 2: MCP tool params — Done, tests pass (test_mcp_date_params)\n\nIn progress:\n- Capability 3: CLI flags — test written (test_cli_date_flags), implementation started in cli.py\n\nRemaining:\n- (none — all capabilities addressed)\n\nDecisions:\n- Used stdlib datetime.fromisoformat, not dateutil — per constraints\n- Validation lives in get_history_since, not MCP layer — single validation point\n```"
+    },
+    {
+      "id": "auditor",
+      "heading": "Auditor Impact Report",
+      "content": "**Filled by:** Auditor — after reviewing all stale nodes and updating live feature docs.\n\n**Example:**\n```json\n{\n  \"iterations\": 1,\n  \"stale_reviewed\": 5,\n  \"docs_updated\": [\n    {\"section_id\": \"cortex::docs.features.history.prd::current-capabilities\", \"reason\": \"Marked date filtering as Done\"}\n  ],\n  \"marked_clean\": [\n    {\"node_id\": \"cortex::cortex.history::get_history_since\", \"scope\": \"expected\", \"type\": \"code\", \"reason\": \"New params added per spec\"}\n  ],\n  \"needs_fix\": [],\n  \"tags_removed\": [],\n  \"errors\": []\n}\n```\n\n**Instructions:** Each entry in `marked_clean` and `needs_fix` includes `scope: \"expected\" | \"collateral\"`. Expected = in the change-set. Collateral = stale from external merges or indirect effects. `needs_fix` categories: `code_bug`, `needs_new_tests`, `test_budget`, `logging`, `workflow_markers`.\n\n### Continuation Checkpoint\n**Only present if the Auditor hit the context leash.** Written by the orchestrator from the Auditor's return. The Auditor is the most likely agent to need this — reviewing many stale nodes consumes context fast. Already-marked-clean nodes won't appear stale on the next `cortex_check`, so the fresh incarnation naturally skips them.\n\n**Example:**\n```\n### Continuation (incarnation 1)\nReviewed (12 of 20 stale nodes):\n- marked_clean: [node_id_1, node_id_2, ..., node_id_9]\n- needs_fix: [{node_id_10, category: logging, reason: \"missing tool entry/exit timing\"}]\n- docs_updated: [{section_id: \"cortex::docs.features.history.prd::current-capabilities\", reason: \"Marked date filtering as Done\"}]\n\nRemaining stale nodes:\n- node_id_13 through node_id_20\n\nPost-implementation updates completed:\n- [x] Capabilities table updated\n- [x] Interface spec updated\n- [ ] Doc-to-code links (not started)\n```"
+    }
+  ]
+}

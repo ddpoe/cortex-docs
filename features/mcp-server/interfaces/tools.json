@@ -10,8 +10,19 @@
     {
       "id": "overview",
       "heading": "Overview",
-      "content": "The cortex MCP server exposes 19 tools via the Model Context Protocol. All tools are implemented in `cortex/mcp_server.py` using the FastMCP framework. Each tool accepts `project_root` (str) as its first parameter.",
+      "content": "The cortex MCP server exposes 20 tools via the Model Context Protocol. All tools are implemented in `cortex/mcp_server.py` using the FastMCP framework. Each tool accepts `project_root` (str) as its first parameter.",
       "level": 2
+    },
+    {
+      "id": "cortex-sql",
+      "heading": "cortex_sql",
+      "content": "Run a read-only SQL query against the cortex index for debugging.\n\n**Parameters:**\n| Name | Type | Required | Description |\n|---|---|---|---|\n| `project_root` | str | Yes | Absolute path to the indexed project |\n| `query` | str | Yes | A SELECT SQL statement to execute |\n| `max_rows` | int | No (default 50, max 500) | Maximum rows to return |\n\n**Returns:** Formatted table of results. Only SELECT statements are allowed. Use for diagnostic queries against `nodes`, `node_history`, `edges`, `tags`, `node_verification`, `docs`, and `doc_sections` tables. Values longer than 80 characters are truncated. Returns `(no rows)` for empty results, `ERROR:` for non-SELECT queries.",
+      "level": 2,
+      "links": [
+        {
+          "node_id": "cortex::cortex.mcp_server::cortex_sql"
+        }
+      ]
     },
     {
       "id": "cortex-build",
@@ -60,7 +71,7 @@
     {
       "id": "cortex-search",
       "heading": "cortex_search",
-      "content": "Full-text search across all indexed nodes.\n\n**Parameters:**\n| Name | Type | Required | Description |\n|---|---|---|---|\n| `project_root` | str | No | Project directory |\n| `query` | str | Yes | Search query (natural language or identifiers) |\n\n**Returns:** Up to 30 results with ID, title, type, and snippet. Uses 3-stage search: FTS5 MATCH → LIKE-AND → LIKE-OR.",
+      "content": "Full-text search across all indexed nodes.\n\n**Parameters:**\n| Name | Type | Required | Description |\n|---|---|---|---|\n| `project_root` | str | No | Project directory |\n| `query` | str | Yes | Search query (natural language or identifiers) |\n\n**Returns:** Up to 20 results (default `max_results`) with ID, title, type, and snippet. Uses 3-stage search: FTS5 MATCH → LIKE-AND → LIKE-OR.",
       "level": 2,
       "links": [
         {
@@ -98,6 +109,17 @@
       "links": [
         {
           "node_id": "cortex::cortex.mcp_server::cortex_history"
+        }
+      ]
+    },
+    {
+      "id": "cortex-list-reference-points",
+      "heading": "cortex_list_reference_points",
+      "content": "List available reference points for `cortex_report(since_sha=...)`. Call this before `cortex_report` to discover valid SHA values.\n\n**Parameters:**\n| Name | Type | Required | Description |\n|---|---|---|---|\n| `project_root` | str | Yes | Absolute path to the indexed project |\n\n**Returns:** `[N reference point(s)]` header, then one line per reference showing short SHA (12 chars), type (`CHECKPOINT` or build SHA), timestamp, row count, and checkpoint message (if any). Returns a guidance message suggesting `cortex build` or `cortex history checkpoint` if no reference points exist.",
+      "level": 2,
+      "links": [
+        {
+          "node_id": "cortex::cortex.mcp_server::cortex_list_reference_points"
         }
       ]
     },
@@ -174,7 +196,7 @@
     {
       "id": "cortex-update-section",
       "heading": "cortex_update_section",
-      "content": "Update a single section's content and/or heading in a DocJSON file. The caller provides plain markdown — no need to construct full DocJSON. Reads the file, patches the target section, writes back, and re-indexes.\n\n**Parameters:**\n| Name | Type | Required | Description |\n|---|---|---|---|\n| `project_root` | str | Yes | Absolute path to the indexed project |\n| `section_id` | str | Yes | Full section ID, e.g. `myproject::docs.architecture::database-layer` |\n| `content` | str | No | New markdown content for the section |\n| `heading` | str | No | New heading for the section |\n\nAt least one of `content` or `heading` must be provided.\n\n**Returns:** Confirmation of which fields were updated.\n\n**Section lookup:** The section slug (the part after the last `::`) is matched against the `id` field of top-level sections in the JSON file. Nested sections are not currently supported by this tool — if a section is nested inside another section's `sections` array, it cannot be targeted directly. Use `cortex_write_doc` to rewrite the full document when nested section updates are needed.",
+      "content": "Update a single section's content, heading, and/or ID in a DocJSON file. The caller provides plain markdown — no need to construct full DocJSON. Reads the file, patches the target section, writes back, and re-indexes.\n\n**Parameters:**\n| Name | Type | Required | Description |\n|---|---|---|---|\n| `project_root` | str | Yes | Absolute path to the indexed project |\n| `section_id` | str | Yes | Full section ID, e.g. `myproject::docs.architecture::database-layer` |\n| `content` | str | No | New markdown content for the section |\n| `heading` | str | No | New heading for the section |\n| `new_id` | str | No | New section ID (simple slug, lowercase + hyphens only). Renames the section and cascades through all DB references (doc_sections, edges, history). Children of a renamed parent have their IDs cascaded automatically. |\n\nAt least one of `content`, `heading`, or `new_id` must be provided.\n\n**Returns:** Confirmation of which fields were updated, including old → new ID mapping if renamed.\n\n**Section lookup:** The section slug (the part after the last `::`) supports dot-path notation for nested sections. For example, `myproject::docs.arch::database-layer.tables` targets the `tables` child section inside `database-layer`. The lookup recursively traverses the JSON `sections` tree following the dot-separated path.",
       "level": 2,
       "links": [
         {
@@ -183,13 +205,24 @@
       ]
     },
     {
-      "id": "cortex-render-doc",
+      "id": "cortex-add-section",
+      "heading": "cortex_add_section",
+      "content": "Add a section to an existing DocJSON document without rewriting the whole file. Loads the JSON, inserts the new section object at the specified position, writes back, and re-indexes.\n\n**Parameters:**\n| Name | Type | Required | Description |\n|---|---|---|---|\n| `project_root` | str | Yes | Absolute path to the indexed project |\n| `doc_id` | str | Yes | Full doc node ID, e.g. `myproject::docs.architecture` |\n| `section_id` | str | Yes | Slug for the new section (e.g. `\"migrations\"`) |\n| `heading` | str | Yes | Heading text for the new section |\n| `content` | str | No | Markdown content (defaults to empty) |\n| `after` | str | No | Sibling section slug to insert after. Appends to end if omitted |\n| `parent_id` | str | No | Dot-path of the parent section for nesting (e.g. `\"database-layer\"`). Omit for top-level |\n\n**Returns:** Confirmation with the full section ID of the new section.\n\n**Depth validation:** Rejects insertions that would exceed max nesting depth (3 levels: depth 0, 1, 2).",
+      "level": 2,
+      "links": [
+        {
+          "node_id": "cortex::cortex.mcp_server::cortex_add_section"
+        }
+      ]
+    },
+    {
+      "id": "cortex-read-doc",
       "heading": "cortex_read_doc",
       "content": "Read a DocJSON file as Markdown. Each section heading is annotated with its full section ID in an HTML comment, enabling direct use in `cortex_update_section` or `cortex_add_link` without a separate lookup.\n\n**Parameters:**\n| Name | Type | Required | Description |\n|---|---|---|---|\n| `project_root` | str | Yes | Absolute path to the indexed project |\n| `doc_id` | str | Yes | Full doc node ID, e.g. `myproject::docs.architecture`. Pass `\"list\"` to enumerate all doc IDs |\n| `section` | str | No | Short slug to read a single section, e.g. `\"problem\"` or `\"architecture\"`. Matched against the tail of each section ID (part after last `::`). If multiple sections match, all are returned with a disambiguation header listing full section IDs. Omit to read the full document |\n\n**Returns:** Rendered Markdown. If `section` is provided and multiple sections match, output begins with `[N sections matched '{slug}' — returning all. Use full section_id in cortex_update_section to be specific.]` followed by the matched section IDs and their content.",
       "level": 2,
       "links": [
         {
-          "node_id": "cortex::cortex.mcp_server::cortex_render_doc"
+          "node_id": "cortex::cortex.mcp_server::cortex_read_doc"
         }
       ]
     },

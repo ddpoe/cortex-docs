@@ -1,0 +1,66 @@
+{
+  "title": "PEV Cycle: pev-2026-03-22-adr13-broken-link-detection",
+  "tags": [
+    "pev-cycle",
+    "pev-active"
+  ],
+  "sections": [
+    {
+      "id": "status",
+      "heading": "Status",
+      "content": "Phase: auditor\nBaseline SHA: d78c3e0305a4f93e54c4f309472ba3e4ebb3a4eb\nStarted: 2026-03-22T12:00:00Z\nCycle ID: pev-2026-03-22-adr13-broken-link-detection\n\nPhase transitions:\n- planning: 2026-03-22T12:00:00Z — cycle created\n- builder: 2026-03-22T12:15:00Z — plan approved\n- auditor: 2026-03-22T12:30:00Z — builder complete, merged"
+    },
+    {
+      "id": "request",
+      "heading": "Request",
+      "content": "Implement ADR-013: Broken Link Detection and Rename-Aware Edge Propagation. Three layers: (1) BROKEN_LINK detection in cortex_check, (2) BROKEN_LINK flagging in cortex_build after purge, (3) rename-aware edge migration in record_code_rename/record_doc_rename with DocJSON file patching."
+    },
+    {
+      "id": "scope",
+      "heading": "Scope",
+      "content": "Modules affected: staleness engine (`cortex/index/staleness.py`), DB layer (`cortex/index/db.py`), builder (`cortex/index/builder.py`), MCP server (`cortex/mcp_server.py`), CLI (`cortex/cli.py`), viz server (`cortex/viz/server.py`), new module `cortex/index/link_maintenance.py`.\n\nScope decision: Cross-cutting. Touches 6 existing modules plus one new module. ADR-013 provides the architectural decisions — no new ADR needed. A prior cycle attempt (pev-2026-03-21) produced a plan but was never executed; this cycle supersedes it with a properly scoped pitch."
+    },
+    {
+      "id": "architect",
+      "heading": "Architect Pitch",
+      "content": "",
+      "sections": [
+        {
+          "id": "problem",
+          "heading": "Problem",
+          "content": "When a function is renamed (e.g., `cortex_render_doc` to `cortex_read_doc`), the builder's hash-similarity rename detection migrates history and verification to the new node ID, but edges are not migrated. Doc sections that linked to the old node ID now point to a node that no longer exists. This is invisible to the current staleness engine: `LINKED_STALE` only fires when a linked target changes, but a deleted target produces no signal at all. The edge points into the void and nothing flags it.\n\nThere are currently broken links in the index (edges whose `to_id` has no matching node), all caused by past renames where edges were left behind. `cortex_check` reports all-clean while the doc graph has dangling references. This cycle adds detection (via a new `BROKEN_LINK` staleness status in `cortex_check` and `cortex_build`) and prevention (via rename-aware edge migration and DocJSON file patching in the rename functions)."
+        },
+        {
+          "id": "user-stories",
+          "heading": "User Stories",
+          "content": "1. **As a developer running `cortex check`**, I want broken links (edges pointing to non-existent nodes) reported as `BROKEN_LINK` in the summary, so that I know the doc graph has integrity problems that need fixing.\n\n2. **As a developer running `cortex build`**, I want broken links created by file deletions or renames to be flagged immediately after the purge pass, so that I do not need a separate `cortex check` to discover them.\n\n3. **As a developer renaming a function**, I want all `documents` and `validates` edges pointing to the old node ID to be automatically migrated to the new node ID, and DocJSON files on disk patched accordingly, so that doc links do not silently break.\n\n4. **As a PEV Auditor agent**, I want `BROKEN_LINK` to appear in `cortex_check` output alongside other staleness statuses, so that I can use it as a loop condition to ensure graph integrity before closing a cycle."
+        },
+        {
+          "id": "solution-sketch",
+          "heading": "Solution Sketch",
+          "content": "Three layers of defense against broken links, following ADR-013:\n\n**Layer 1 -- Detection in `cortex_check` (staleness module).** Add a `find_broken_links()` function to the staleness module that queries edges whose `to_id` has no matching node, scoped to `documents` and `validates` edge types only. Introduce `BROKEN_LINK` as a new staleness status slotted between `CONTENT_STALE` and `STRUCTURAL_DRIFT` in the severity ordering. Overlay broken-link results onto the staleness computation in `record_staleness` as a post-processing pass (after `compute_staleness`, before persistence). Update `cortex_check` in both MCP server and CLI to include `BROKEN_LINK` in the summary line and problem node table.\n\n**Layer 2 -- Detection in `cortex_build` (builder module).** After the existing purge pass that removes nodes for deleted files, call the same `find_broken_links()` function and persist `BROKEN_LINK` staleness on affected nodes. This catches newly-created broken links at the moment they happen (file deletion or rename) without requiring a separate `cortex_check`.\n\n**Layer 3 -- Prevention via rename-aware edge migration (DB module + new link_maintenance module).** Extend `record_code_rename` and `record_doc_rename` in the DB layer to also UPDATE edges (both `to_id` and `from_id` columns) from old ID to new ID, inside the same transaction as existing history/verification migration. Create a new `cortex/index/link_maintenance.py` module with a `_patch_doc_links()` helper that walks DocJSON files on disk and replaces old node IDs in `links` arrays with new ones, using atomic file writes. Call this helper from both rename functions after the DB transaction.\n\n**Surface area updates.** Add `BROKEN_LINK` to the viz server's staleness cause messages dict. Update the builder's MCP tool output to report broken link counts. No CSS/JS changes in viz -- the existing detail panel will display the message via the staleness cause endpoint."
+        },
+        {
+          "id": "constraints",
+          "heading": "Constraints",
+          "content": "**Rabbit holes -- do not go here:**\n\n- Do NOT auto-fix existing broken links. This cycle adds detection and prevention. The existing broken links will surface via `cortex_check` but fixing them (updating doc sections, section IDs, content) is a separate manual task.\n- Do NOT add CSS/JS changes to the viz frontend for BROKEN_LINK styling. The detail panel message via `_STALENESS_CAUSE_MESSAGES` is sufficient. List view will use default styling for the new status.\n- Do NOT modify `compute_staleness` itself. Broken-link detection is a post-processing pass in `record_staleness`, keeping the hash-based computation clean and separate from graph integrity checks.\n- Do NOT check `composes` or `depends_on` edges for broken links. Only `documents` and `validates` are user-facing link types. Dangling internal edges would be a builder bug, not a user concern.\n\n**No-gos -- explicitly out of scope:**\n\n- No schema migrations. The `nodes.staleness` column is TEXT and already accepts any string.\n- No `edges_migrated` tracking column on `node_renames`. The ADR mentions this as a possible enhancement but it is not needed for this cycle.\n- No renaming sub-feature documentation tree (`docs/features/indexer/sub_features/renaming/`). The ADR recommends this but it is Auditor-scope work via the post-implementation protocol, not Builder scope.\n\n**Trade-offs accepted:**\n\n- Adding `project_root` parameter to `record_code_rename` and `record_doc_rename` is a signature change. Both are internal APIs with known call sites (builder and json_doc_scanner only), so this is safe.\n- `record_staleness` will call `apply_composite_inheritance` twice (once inside `compute_staleness`, once after broken-link overlay). This is acceptable at current index size.\n- DocJSON file patching adds file I/O to the rename path. Use atomic writes (temp file + `os.replace`) to mitigate corruption risk.\n\n**Test budget:** 8-10 focused tests across two test files -- one for broken-link detection (`find_broken_links`, severity ordering, `record_staleness` overlay) and one for rename edge migration (edge updates, DocJSON patching, no broken links after rename)."
+        }
+      ]
+    },
+    {
+      "id": "change-set",
+      "heading": "Change Set",
+      "content": "Baseline SHA: d78c3e0305a4f93e54c4f309472ba3e4ebb3a4eb\n\nFiles changed:\n- cortex/index/staleness.py (Layer 1: find_broken_links, BROKEN_LINK severity, record_staleness overlay)\n- cortex/index/db.py (Layer 3: edge migration in record_code_rename/record_doc_rename)\n- cortex/index/builder.py (Layer 2: _flag_broken_links after purge)\n- cortex/index/link_maintenance.py (NEW — Layer 3: atomic DocJSON link patching)\n- cortex/cli.py (BROKEN_LINK in CLI check output)\n- cortex/mcp_server.py (BROKEN_LINK in MCP cortex_check output)\n- cortex/viz/server.py (BROKEN_LINK staleness cause message)\n- tests/test_broken_links.py (NEW — 7 tests for detection)\n- tests/test_rename_edge_migration.py (NEW — 5 tests for edge migration)\n\nCortex check: 115 CONTENT_STALE · 16 LINKED_STALE · 12 STRUCTURAL_DRIFT · 1777 CLEAN"
+    },
+    {
+      "id": "builder",
+      "heading": "Builder Manifest",
+      "content": "Status: DONE\nTests passed: 12/12 new tests, all pre-existing tests pass\n\nDeviations:\n1. `project_root` added as optional kwarg (default None) to `record_code_rename`/`record_doc_rename` instead of required param — avoids breaking existing callers\n2. Broken-link detection in builder extracted to `_flag_broken_links()` helper without dflow step annotation — cleaner than forcing dflow pattern\n\nFiles changed: cortex/index/staleness.py, cortex/index/db.py, cortex/index/builder.py, cortex/index/link_maintenance.py (new), cortex/cli.py, cortex/mcp_server.py, cortex/viz/server.py\n\nTests added: tests/test_broken_links.py (7 tests), tests/test_rename_edge_migration.py (5 tests)"
+    },
+    {
+      "id": "auditor",
+      "heading": "Auditor Impact Report",
+      "content": "Status: DONE (loopback re-check)\n\nLoopback fix verified: patch_doc_links() now correctly recurses into nested sections via _patch_sections_recursive(). The helper walks section dicts, patches matching links, then recurses into child `sections` lists. Atomic file writes are preserved.\n\n6 new tests in tests/test_link_maintenance.py cover: flat links, nested links, deeply nested (3 levels), no-match, mixed levels, and disk integration.\n\nNodes reviewed (loopback):\n- cortex::cortex.index.link_maintenance — CLEAN (module updated with recursive helper)\n- cortex::cortex.index.link_maintenance::patch_doc_links — CLEAN (delegates to _patch_sections_recursive)\n\nNo further needs_fix items. All cycle-scoped nodes are clean or verified."
+    }
+  ]
+}
