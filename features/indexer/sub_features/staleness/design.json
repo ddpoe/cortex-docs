@@ -50,6 +50,9 @@
         },
         {
           "node_id": "cortex::cortex.cli::cmd_check"
+        },
+        {
+          "node_id": "cortex::cortex.index.staleness::record_staleness"
         }
       ]
     },

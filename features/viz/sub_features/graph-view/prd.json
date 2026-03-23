@@ -26,6 +26,9 @@
         },
         {
           "node_id": "cortex::cortex.viz.server::run_server"
+        },
+        {
+          "node_id": "cortex::cortex.index.staleness::record_staleness"
         }
       ]
     },

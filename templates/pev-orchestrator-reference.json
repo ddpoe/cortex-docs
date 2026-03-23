@@ -1,0 +1,66 @@
+{
+  "title": "PEV Orchestrator Reference",
+  "tags": ["template", "pev", "reference"],
+  "sections": [
+    {
+      "id": "naming-conventions",
+      "heading": "Naming Conventions",
+      "content": "Cycle ID format: `pev-YYYY-MM-DD-{slug}`\n\n- Date: today's date\n- Slug: derived from user request — lowercase, hyphens only, truncated to 40 chars\n- Example: `pev-2026-03-21-add-history-filtering`\n\nCollision check:\n```bash\nls docs/pev-cycles/ 2>/dev/null | grep \"^{slug-prefix}\"\n```\nIf collision exists, append `-2`, `-3`, etc.\n\nWorktree paths:\n- Builder: `pev-worktrees/{cycle-id}`\n- Builder fix: `pev-worktrees/{cycle-id}-fix-{iteration}`\n\nBranch names:\n- Builder: `pev/{cycle-id}`\n- Builder fix: `pev/{cycle-id}-fix-{iteration}`\n\nCortex doc ID: `cortex::docs.pev-cycles.{cycle-id}` (dots replace path separators, hyphens preserved)."
+    },
+    {
+      "id": "manifest-creation",
+      "heading": "Manifest Creation",
+      "content": "Use `cortex_write_doc` to create the cycle manifest. The structure is defined in `cortex::docs.templates.cycle-manifest-template` — consult that doc for the full section layout and instructions.\n\nCall pattern:\n```\ncortex_write_doc(\n  project_root=\"{project_root}\",\n  doc_json='{JSON with title, id, tags, sections}'\n)\n```\n\nRequired values to fill:\n- `title`: `\"PEV Cycle: {cycle-id}\"`\n- `id`: `\"pev-cycles/{cycle-id}\"` (filename hint)\n- `tags`: `[\"pev-cycle\", \"pev-active\"]`\n- `status.content`: Phase, baseline SHA, timestamp, cycle ID\n- `request.content`: User's request verbatim\n\nAll other sections start with placeholder content — Architect, Builder, and Auditor fill them."
+    },
+    {
+      "id": "state-file",
+      "heading": "State File",
+      "content": "Write `.claude/pev-state.json` before each subagent dispatch. The doc-scope hook and tool-budget hooks read this file.\n\nFormat:\n```json\n{\n  \"cycle_id\": \"{cycle-id}\",\n  \"cycle_doc_id\": \"cortex::docs.pev-cycles.{cycle-id}\",\n  \"counter_file\": \"/tmp/pev-{cycle-id}-{agent}-{incarnation}\"\n}\n```\n\n- `{agent}`: `architect`, `builder`, or `auditor`\n- `{incarnation}`: starts at 1, increments per re-dispatch\n- A fresh counter_file path (file doesn't exist yet) starts at 0 automatically — no explicit reset needed\n- Use the Write tool to create this file"
+    },
+    {
+      "id": "worktree-commands",
+      "heading": "Worktree Commands",
+      "content": "**Create worktree for Builder:**\n```bash\ngit worktree add -b pev/{cycle-id} pev-worktrees/{cycle-id} HEAD\ncd pev-worktrees/{cycle-id} && poetry install\n```\n\n**Copy cortex DB into worktree:**\n```\ncortex_checkout(\n  project_root=\"{project_root}\",\n  worktree_path=\"{project_root}/pev-worktrees/{cycle-id}\"\n)\n```\n\n**Remove worktree after merge:**\n```bash\ngit worktree remove pev-worktrees/{cycle-id}\ngit branch -d pev/{cycle-id}\n```\n\n**Create fix worktree (loopback):**\n```bash\ngit worktree add -b pev/{cycle-id}-fix-{N} pev-worktrees/{cycle-id}-fix-{N} HEAD\n```\n\n**Check for stale worktrees:**\n```bash\ngit worktree list\n```"
+    },
+    {
+      "id": "merge-commands",
+      "heading": "Merge Commands",
+      "content": "**Merge Builder's branch (no-commit for review):**\n```bash\ncd {project_root}\ngit merge --no-commit --no-ff pev/{cycle-id}\n```\n\nIf conflicts exist, present them to the user and resolve before proceeding.\n\n**Post-merge rebuild:**\n```\ncortex_build(project_root=\"{project_root}\")\ncortex_check(project_root=\"{project_root}\")\n```\n\n**Get changed files for change-set:**\n```bash\ngit diff --name-only {baseline_sha}..HEAD\n```"
+    },
+    {
+      "id": "dispatch-prompts",
+      "heading": "Dispatch Prompts",
+      "content": "**Architect (initial):**\n```\nYou are the PEV Architect for cycle {cycle_id}.\n\nCycle manifest doc ID: cortex::docs.pev-cycles.{cycle-id}\nProject root: {project_root}\n\nUser request:\n{user request verbatim}\n\nRead the cycle manifest, explore the codebase, ask the user clarifying questions, and write your plan to the cycle manifest. Follow your skill instructions.\n```\n\n**Architect (revision):**\nAppend: `REVISION REQUESTED. Read your previous plan from the cycle manifest and revise based on this feedback: {user feedback}`\n\n**Builder (initial):**\n```\nYou are the PEV Builder for cycle {cycle_id}.\n\nCycle manifest doc ID: cortex::docs.pev-cycles.{cycle-id}\nProject root: {project_root}/pev-worktrees/{cycle-id}\n\nRead the Architect's pitch from the cycle manifest, decompose the work, and implement using TDD. All code changes go in the worktree at the project root above.\n\nFollow your skill instructions. Return your implementation manifest when done.\n```\n\n**Builder (continuation):**\nAdd: `CONTINUATION: A previous Builder incarnation was dispatched and returned CONTINUING. Your code changes from the previous incarnation are already on disk in the worktree. Previous Builder checkpoint: {checkpoint}`\n\n**Builder (fix — loopback):**\n```\nYou are the PEV Builder for cycle {cycle_id} (targeted fix — loopback iteration {N}).\n\nCycle manifest doc ID: cortex::docs.pev-cycles.{cycle-id}\nProject root: {project_root}/pev-worktrees/{cycle-id}-fix-{N}\n\nThis is a TARGETED FIX dispatch. Do NOT re-read the full Architect pitch. Fix ONLY the following items identified by the Auditor:\n{needs_fix items}\n```\n\n**Auditor (initial):**\n```\nYou are the PEV Auditor for cycle {cycle_id}.\n\nCycle manifest doc ID: cortex::docs.pev-cycles.{cycle-id}\nProject root: {project_root}\n\nRead the cycle manifest, then run cortex_build + cortex_check to determine the review scope. Follow the Auditor Reference Protocol for the full checklist.\n\nReturn your Impact Report when done.\n```\n\n**Auditor (continuation):**\nAdd: `CONTINUATION: A previous Auditor incarnation was dispatched and returned CONTINUING. Already-marked-clean nodes will not appear stale on cortex_check. Previous Auditor checkpoint: {checkpoint}`\n\n**All dispatches use:** `subagent_type=\"pev-{agent}\"`, `maxTurns=40`. Do NOT use `isolation: \"worktree\"` — the orchestrator owns the worktree lifecycle."
+    },
+    {
+      "id": "status-updates",
+      "heading": "Status Updates",
+      "content": "Use `cortex_update_section` to update the status section at each phase transition.\n\n**Planning → Builder:**\n```\ncortex_update_section(\n  section_id=\"cortex::docs.pev-cycles.{cycle-id}::status\",\n  content=\"Phase: builder\\nBaseline SHA: {baseline_sha}\\nStarted: {original-timestamp}\\nCycle ID: {cycle-id}\\n\\nPhase transitions:\\n- planning: {original-timestamp} — cycle created\\n- builder: {now-timestamp} — plan approved\"\n)\n```\n\n**Builder → Auditor:**\nAdd: `- auditor: {now-timestamp} — builder complete, merged`\n\n**Auditor → Completed:**\nAdd: `- completed: {now-timestamp} — committed as {commit_sha}`\nAlso add: `Commit SHA: {commit_sha}` and `Completed: {now-timestamp}`\n\n**Failure at any point:**\nSet `Phase: incomplete` with reason. Keep the `pev-active` tag so the cycle can be resumed."
+    },
+    {
+      "id": "manifest-parsing",
+      "heading": "Manifest Parsing",
+      "content": "**Builder returns:** Look for `---MANIFEST---` separator in the completion message. Everything after it is the JSON manifest.\n\n**Auditor returns:** Look for `---IMPACT-REPORT---` separator. Everything after it is the JSON impact report.\n\n**No separator found:** The agent was cut off by the `maxTurns` limit before writing a structured return. Treat this as `CONTINUING` — the work on disk (code for Builder, marked-clean nodes for Auditor) is the real state. Use the agent's last message as the checkpoint summary.\n\n**Writing to manifest:**\n```\ncortex_update_section(\n  section_id=\"cortex::docs.pev-cycles.{cycle-id}::builder\",\n  content=\"{formatted manifest}\"\n)\n```\n\n**Checkpoint sub-sections (for CONTINUING):**\n```\ncortex_add_section(\n  doc_id=\"cortex::docs.pev-cycles.{cycle-id}\",\n  parent_section_id=\"builder\",\n  section_id=\"checkpoint-{incarnation}\",\n  heading=\"Builder Checkpoint (Incarnation {N})\",\n  content=\"{progress summary}\"\n)\n```"
+    },
+    {
+      "id": "loopback-mechanics",
+      "heading": "Loopback Mechanics",
+      "content": "When the Auditor returns `DONE_WITH_CONCERNS` with `needs_fix` items, dispatch a targeted Builder to fix them.\n\n**Rules:**\n- Maximum 2 loopback iterations\n- Each iteration gets its own worktree: `pev-worktrees/{cycle-id}-fix-{N}`\n- Each iteration gets its own branch: `pev/{cycle-id}-fix-{N}`\n- Use the Builder fix dispatch prompt (see dispatch-prompts section)\n- After Builder returns, merge the fix branch back, remove worktree/branch\n- Rebuild cortex and re-dispatch the Auditor\n\n**After max iterations:**\nIf the Auditor still returns `needs_fix` after iteration 2, surface remaining items to the user:\n```\nAuditor found remaining issues after 2 Builder loopback iterations:\n{remaining needs_fix items}\n\nOptions:\n1. Fix these manually and re-run the Auditor\n2. Accept the current state and proceed to commit\n3. Abort the cycle\n```"
+    },
+    {
+      "id": "commit-format",
+      "heading": "Commit Format",
+      "content": "Single commit containing all changes (code + docs).\n\n**Important:** The pre-commit hook auto-commits docs submodule changes. Always `git add docs` explicitly before committing to ensure the submodule pointer is included.\n\n```bash\ngit add -A\ngit commit -m \"$(cat <<'EOF'\n{commit message summarizing the PEV cycle}\n\nPEV Cycle: {cycle-id}\nArchitect: {scope summary}\nBuilder: {implementation summary}\nAuditor: {audit summary — nodes reviewed, docs updated}\n\nCo-Authored-By: Claude Opus 4.6 (1M context) <noreply@anthropic.com>\nEOF\n)\"\n```\n\nCapture the commit SHA: `git rev-parse HEAD`"
+    },
+    {
+      "id": "completion-cleanup",
+      "heading": "Completion Cleanup",
+      "content": "After the commit:\n\n1. **Create audit checkpoint:**\n```bash\npoetry run cortex history checkpoint . --message \"pev-cycle-{cycle-id}-audit-complete\"\n```\n\n2. **Update status to completed** (see status-updates section)\n\n3. **Remove pev-active tag:** Read the full doc with `cortex_read_doc`, then `cortex_write_doc` to rewrite with `pev-active` removed from the tags list. Keep `pev-cycle` tag.\n\n4. **Delete state file:**\n```bash\nrm -f .claude/pev-state.json\n```\n\n5. **Invoke** `superpowers:finishing-a-development-branch` to present merge/PR options."
+    },
+    {
+      "id": "error-handling",
+      "heading": "Error Handling",
+      "content": "**Agent dispatch fails:** Check that `.claude/agents/pev-{agent}.md` exists. Suggest user run `/agents` to reload definitions.\n\n**cortex_write_doc fails:** Check that `docs/pev-cycles/` directory exists.\n\n**Worktree creation fails:** Check for stale worktrees with `git worktree list` and remove them.\n\n**Merge conflicts:** Present conflicts to the user and resolve before proceeding.\n\n**cortex_check hangs:** Known issue — set a timeout and retry. If it hangs again, proceed with manual review scope based on the Builder's change-set.\n\n**Failure at any point:** Update the cycle manifest status to `incomplete`. The `pev-active` tag stays — the cycle can be resumed on the next `/pev` invocation.\n\n**Subagent returns CONTINUING:** Write checkpoint to cycle manifest and redispatch (see manifest-parsing section)."
+    }
+  ]
+}

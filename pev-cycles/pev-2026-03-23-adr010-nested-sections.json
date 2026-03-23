@@ -1,0 +1,81 @@
+{
+  "title": "PEV Cycle: pev-2026-03-23-adr010-nested-sections",
+  "tags": [
+    "pev-cycle",
+    "pev-active"
+  ],
+  "sections": [
+    {
+      "id": "status",
+      "heading": "Status",
+      "content": "Phase: planning\nBaseline SHA: 713a186b24745e7e000764df68d93d4cad9f75f4\nStarted: 2026-03-23\nCycle ID: pev-2026-03-23-adr010-nested-sections\n\nPhase transitions:\n- planning: 2026-03-23 — cycle created"
+    },
+    {
+      "id": "request",
+      "heading": "Request",
+      "content": "Implement the remaining ADR-010 nested sections features: (1) cortex_add_section MCP tool, (2) dot-path section ID resolution in cortex_update_section and cortex_add_link, (3) new_id rename parameter on cortex_update_section with child cascade, (4) depth validation in cortex_write_doc, (5) LINKED_STALE propagation for parent doc sections with stale children, (6) parent_id/depth fields in viz render_doc_api. Tests already exist in tests/test_nested_sections.py — all 11 currently-failing tests must pass."
+    },
+    {
+      "id": "scope",
+      "heading": "Scope",
+      "content": "Modules affected: `cortex/mcp_server.py` (MCP tools), `cortex/index/staleness.py` (composite inheritance), `cortex/viz/server.py` (render_doc_api), `cortex/index/db.py` (get_doc_sections ordering).\n\nScope decision: Single-feature. All changes implement remaining items from ADR-010 (nested DocJSON sections). The scanner and schema layers (Layers 1-2) were already implemented in a prior cycle. This cycle completes Layers 3-5: staleness propagation, MCP tool enhancements, and viz backend support."
+    },
+    {
+      "id": "architect",
+      "heading": "Architect Pitch",
+      "content": "(Architect fills this section)",
+      "sections": [
+        {
+          "id": "problem",
+          "heading": "Problem",
+          "content": "(Architect fills)"
+        },
+        {
+          "id": "user-stories",
+          "heading": "User Stories",
+          "content": "(Architect fills)"
+        },
+        {
+          "id": "capabilities",
+          "heading": "Capabilities",
+          "content": "(Architect fills)"
+        },
+        {
+          "id": "design",
+          "heading": "Design",
+          "content": "(Architect fills)"
+        },
+        {
+          "id": "constraints",
+          "heading": "Constraints",
+          "content": "(Architect fills)"
+        },
+        {
+          "id": "affected-nodes",
+          "heading": "Affected Nodes",
+          "content": "(Architect fills)"
+        },
+        {
+          "id": "changelog-draft",
+          "heading": "Changelog Draft",
+          "content": "(Architect fills)"
+        }
+      ]
+    },
+    {
+      "id": "change-set",
+      "heading": "Change Set",
+      "content": "(Builder fills this section)"
+    },
+    {
+      "id": "builder",
+      "heading": "Builder Manifest",
+      "content": "(Builder fills this section)"
+    },
+    {
+      "id": "auditor",
+      "heading": "Auditor Impact Report",
+      "content": "(Auditor fills this section)"
+    }
+  ]
+}
