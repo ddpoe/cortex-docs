@@ -1,0 +1,76 @@
+{
+  "title": "PEV Cycle: pev-2026-03-23-semantic-search",
+  "tags": [
+    "pev-cycle",
+    "pev-active"
+  ],
+  "sections": [
+    {
+      "id": "status",
+      "heading": "Status",
+      "content": "Phase: builder\nBaseline SHA: ca6010e868590f86b2d34523137b3a72fd219d23\nStarted: 2026-03-23\nCycle ID: pev-2026-03-23-semantic-search\n\nPhase transitions:\n- planning: 2026-03-23 — cycle created\n- builder: 2026-03-23 — plan approved"
+    },
+    {
+      "id": "request",
+      "heading": "Request",
+      "content": "add semantic search to cortex — I want to be able to search doc sections and code docstrings by meaning, not just keywords. Something with embeddings, maybe RAG-style retrieval. Not sure what the right approach is for a local-first tool with an SQLite backend."
+    },
+    {
+      "id": "scope",
+      "heading": "Scope",
+      "content": "Modules affected: `cortex/index/db.py` (schema, embedding storage, search), `cortex/mcp_server.py` (cortex_search tool), `cortex/index/builder.py` (embedding generation during build).\n\nNew module: an embeddings helper (likely `cortex/index/embeddings.py`) to encapsulate model loading and vector generation.\n\nScope decision: Single-feature. This adds a new search capability layered on top of the existing FTS5 infrastructure. The embedding index lives alongside the existing node_fts table in cortex.db. No architectural decisions needed beyond what is captured in this pitch."
+    },
+    {
+      "id": "architect",
+      "heading": "Architect Plan",
+      "content": "(Architect fills this section)",
+      "sections": [
+        {
+          "id": "problem",
+          "heading": "Problem",
+          "content": "Cortex search (`cortex_search`) currently uses SQLite FTS5 full-text matching, which requires exact or prefix word matches. This fails for conceptual queries — searching \"how does staleness work\" won't find nodes described as \"detects content drift via hash comparison.\" Additionally, doc sections (635 rows in `doc_sections`) are not searchable at all through `cortex_search`; only the ~1500 code nodes in `node_fts` are indexed. Users must know the exact doc ID to read documentation, making discovery difficult for both humans and agents."
+        },
+        {
+          "id": "user-stories",
+          "heading": "User Stories",
+          "content": "1. **As an agent using cortex_search, I want to find relevant nodes using natural-language queries** so that I can locate code and documentation without knowing exact identifier names. Acceptance: a query like \"hash comparison for detecting changes\" returns staleness-related nodes even though those exact words don't appear in node summaries. A new `mode` parameter (or similar) on `cortex_search` selects semantic search.\n\n2. **As an agent, I want doc sections to appear in cortex_search results** so that I can discover documentation without knowing doc IDs. Acceptance: `cortex_search(query=\"...\", node_type=\"doc_section\")` or a filter parameter returns matching doc sections with their full section IDs. Works for both FTS and semantic modes.\n\n3. **As a developer, I want embeddings generated automatically during `cortex build`** so that the semantic index stays current without manual steps. Acceptance: after `cortex build`, new and changed nodes have embeddings. Unchanged nodes keep their existing embeddings (no redundant recomputation).\n\n4. **As a developer, I want the embedding model to run locally with no API keys or network access** so that semantic search works offline and has no per-query cost. Acceptance: a small local model (e.g., sentence-transformers `all-MiniLM-L6-v2` or similar) generates embeddings. The model is downloaded once on first use. Total disk footprint under 100MB."
+        },
+        {
+          "id": "design",
+          "heading": "Solution Sketch",
+          "content": "The approach is local embeddings with sqlite-vec, unified into cortex_search with mode and scope parameters.\n\n**New module: `cortex/index/embeddings.py`** — handles model loading (sentence-transformers, small model like all-MiniLM-L6-v2) and text-to-vector conversion. Model lazily loaded on first semantic query to avoid blocking MCP startup.\n\n**DB layer (`cortex/index/db.py`)** — adds a sqlite-vec virtual table for vector storage in cortex.db. sqlite-vec extension loaded on every connection open. Embeddings keyed by node ID with a content hash to skip re-embedding unchanged entries.\n\n**Builder (`cortex/index/builder.py`)** — embeds level_1+level_2 for code nodes and heading+content for doc sections during build. Batch embedding in chunks for memory efficiency. Doc sections also added to FTS5 index (closing existing gap).\n\n**MCP tool (`cortex/mcp_server.py`)** — `cortex_search` gains a `mode` parameter (keyword|semantic|hybrid, default: keyword) and a `scope` parameter (code|docs|all, default: all). Semantic mode embeds the query and finds nearest neighbors via sqlite-vec. Hybrid mode combines FTS ranking with vector similarity.\n\n**Dependencies (`pyproject.toml`)** — adds sentence-transformers (or fastembed) and sqlite-vec as new dependencies.\n\nEdge cases: graceful degradation if sqlite-vec unavailable; FTS fallback stages unchanged in keyword mode; doc section IDs use qualified format consistently."
+        },
+        {
+          "id": "constraints",
+          "heading": "Constraints",
+          "content": "**Rabbit holes — do not go here:**\n\n- Do not implement hybrid search (combining FTS and vector scores) in this cycle. Offer FTS and semantic as separate modes. Hybrid ranking is a future enhancement.\n- Do not build a custom embedding model or fine-tune anything. Use an off-the-shelf sentence-transformers model.\n- Do not add semantic search to the viz dashboard in this cycle. MCP tool only.\n- Do not implement incremental re-embedding triggered by file watches or git hooks. Embeddings update during `cortex build` only.\n\n**No-gos — explicitly out of scope:**\n\n- No cloud/API-based embedding services. Local model only, no network calls after initial model download.\n- No changes to the existing FTS5 search behavior. FTS must continue to work exactly as it does today when semantic mode is not requested.\n- No new MCP tools. Doc section search and semantic search are integrated into the existing `cortex_search` tool via parameters.\n\n**Trade-offs accepted:**\n\n- First semantic query in a session will be slow (model loading). This is acceptable for a local tool.\n- The embedding model adds ~80-100MB to disk. Acceptable for the capability it provides.\n- sqlite-vec is a relatively new extension. If platform compatibility issues arise, the Builder should make the feature optional (graceful degradation to FTS-only).\n\n**Test budget:** 5-8 focused tests covering: vector table creation/migration, embedding generation for nodes and doc sections, semantic search returning ranked results, doc section FTS indexing, graceful degradation when sqlite-vec is unavailable, cortex_search parameter handling for mode and type filtering."
+        },
+        {
+          "id": "affected-nodes",
+          "heading": "Affected Nodes",
+          "content": "(Architect fills this section)"
+        },
+        {
+          "id": "changelog-draft",
+          "heading": "Changelog Draft",
+          "content": "(Architect fills this section)"
+        }
+      ]
+    },
+    {
+      "id": "change-set",
+      "heading": "Change Set",
+      "content": "(Orchestrator fills after Builder merge)"
+    },
+    {
+      "id": "builder",
+      "heading": "Builder Manifest",
+      "content": "(Orchestrator fills from Builder return)"
+    },
+    {
+      "id": "auditor",
+      "heading": "Auditor Impact Report",
+      "content": "(Auditor fills this section)"
+    }
+  ]
+}
