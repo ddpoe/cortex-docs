@@ -1,0 +1,28 @@
+{
+  "title": "PRD: Embedded Search",
+  "tags": [
+    "feature-prd"
+  ],
+  "sections": [
+    {
+      "id": "problem",
+      "heading": "Problem",
+      "content": "Cortex search (`cortex_search`) uses SQLite FTS5 full-text matching, which requires exact or prefix word matches. Conceptual queries fail — searching \"how does staleness work\" won't find nodes described as \"detects content drift via hash comparison.\" Additionally, doc sections (~635 rows in `doc_sections`) are not searchable at all through `cortex_search`; only code nodes in `node_fts` are indexed. Users must know the exact doc ID to discover documentation."
+    },
+    {
+      "id": "user-stories",
+      "heading": "User Stories",
+      "content": "1. **Semantic search** — As an agent using cortex_search, I want to find relevant nodes using natural-language queries so that I can locate code and documentation without knowing exact identifier names. A query like \"hash comparison for detecting changes\" returns staleness-related nodes even though those exact words don't appear in node summaries.\n\n2. **Doc section discovery** — As an agent, I want doc sections to appear in cortex_search results so that I can discover documentation without knowing doc IDs. A `scope` parameter filters results to code-only, docs-only, or both.\n\n3. **Automatic embedding at build time** — As a developer, I want embeddings generated automatically during `cortex build` so that the semantic index stays current without manual steps. Unchanged nodes keep existing embeddings (no redundant recomputation).\n\n4. **Fully local** — As a developer, I want the embedding model to run locally with no API keys or network access so that semantic search works offline with no per-query cost. A small local model generates embeddings, downloaded once on first use, total disk footprint under 100MB."
+    },
+    {
+      "id": "current-capabilities",
+      "heading": "Current Capabilities",
+      "content": "| Capability | Status |\n|---|---|\n| Local embedding model (fastembed, all-MiniLM-L6-v2, 384 dims) | Done |\n| Lazy model loading on first semantic query | Done |\n| Graceful backend fallback: fastembed > sentence-transformers > hash fallback | Done |\n| sqlite-vec virtual table for vector storage in cortex.db | Done |\n| Content-hash skip for unchanged embeddings | Done |\n| Doc sections indexed in FTS5 (heading + content) | Done |\n| Embedding generation during `cortex build` for code nodes | Done |\n| Embedding generation during `cortex build` for doc sections | Done |\n| `cortex_search` `mode` parameter (keyword|semantic) | Done |\n| `cortex_search` `scope` parameter (code|docs|all) | Done |\n| Semantic-to-keyword fallback when sqlite-vec unavailable | Done |\n| Batch embedding in chunks for memory efficiency | Done |\n| Hybrid search mode (combined FTS + vector ranking) | Not started |\n| Viz dashboard semantic search | Not started |"
+    },
+    {
+      "id": "backlog",
+      "heading": "Backlog",
+      "content": "- Hybrid search mode combining FTS ranking with vector similarity scores\n- Semantic search integration in viz dashboard\n- Configurable embedding model via cortex.toml\n- Incremental re-embedding triggered by file watches\n- Embedding model fine-tuning for code-specific domains"
+    }
+  ]
+}
