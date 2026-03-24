@@ -8,7 +8,7 @@
     {
       "id": "status",
       "heading": "Status",
-      "content": "Phase: planning\nBaseline SHA: a1d1b172a0f3b0eda9100db45edb53a9ed63ddc4\nStarted: 2026-03-24\nCycle ID: pev-2026-03-24-js-ts-scanner-via-tree-sitter\n\nPhase transitions:\n- planning: 2026-03-24 — cycle created"
+      "content": "Phase: builder\nBaseline SHA: a1d1b172a0f3b0eda9100db45edb53a9ed63ddc4\nStarted: 2026-03-24\nCycle ID: pev-2026-03-24-js-ts-scanner-via-tree-sitter\n\nPhase transitions:\n- planning: 2026-03-24 — cycle created\n- builder: 2026-03-24 — plan approved"
     },
     {
       "id": "request",
@@ -18,42 +18,44 @@
     {
       "id": "scope",
       "heading": "Scope",
-      "content": "(Architect fills this section)"
+      "content": "**Scope decision:** Single-feature. This adds a new scanner subsystem and wires it into the existing build pipeline.\n\n**Modules affected:**\n- `cortex/scanners/` — new `js_scanner.py` module (primary deliverable)\n- `cortex/index/builder.py` — dispatch JS/TS files to the new scanner, add JS file discovery\n- `cortex/config.py` — add `js_paths` config field to ScanConfig\n- `pyproject.toml` — optional `[js]` extra for tree-sitter dependencies\n\n**First consumer:** The 14 TypeScript files in `viz/src/` serve as the integration test target."
     },
     {
       "id": "architect",
       "heading": "Architect Plan",
-      "content": "(Architect fills this section)"
-    },
-    {
-      "id": "architect.problem",
-      "heading": "Problem",
-      "content": "(Architect fills this section)"
-    },
-    {
-      "id": "architect.user-stories",
-      "heading": "User Stories",
-      "content": "(Architect fills this section)"
-    },
-    {
-      "id": "architect.design",
-      "heading": "Solution Sketch",
-      "content": "(Architect fills this section)"
-    },
-    {
-      "id": "architect.constraints",
-      "heading": "Constraints",
-      "content": "(Architect fills this section)"
-    },
-    {
-      "id": "architect.affected-nodes",
-      "heading": "Affected Nodes",
-      "content": "(Architect fills this section)"
-    },
-    {
-      "id": "architect.changelog-draft",
-      "heading": "Changelog Draft",
-      "content": "(Architect fills this section)"
+      "content": "Shape Up pitch for the JS/TS scanner implementation per ADR-006. Sub-sections: problem, user-stories, design (solution sketch), constraints, affected-nodes, changelog-draft.",
+      "sections": [
+        {
+          "id": "problem",
+          "heading": "Problem",
+          "content": "Cortex currently indexes only Python source files. The viz frontend (14 TypeScript files in `viz/src/`) is invisible to the index — no nodes, no edges, no staleness tracking. With the recent refactor to TypeScript ES modules, these files now use static ESM imports with relative paths, making them fully eligible for import resolution and validates edges.\n\nADR-006 specifies a tree-sitter-based JS/TS scanner that produces the same `CortexNode`/`CortexEdge` output as the existing Python scanner, wired into the builder pipeline via file extension dispatch. The scanner must be an optional dependency so Python-only projects are unaffected."
+        },
+        {
+          "id": "user-stories",
+          "heading": "User Stories",
+          "content": "1. **As a developer**, I want `cortex build` to discover and index JS/TS files so that frontend modules and functions appear as nodes in the graph.\n2. **As a developer**, I want ESM import edges between JS/TS modules so that `cortex_graph` can trace frontend dependencies.\n3. **As a Python-only user**, I want the JS scanner to be an optional dependency so that my install is unaffected when I don't need JS support.\n4. **As a developer**, I want staleness tracking to cover JS/TS nodes so that I get the same `CONTENT_STALE` signals as Python code.\n5. **As a cortex maintainer**, I want the viz/src TypeScript files to be the integration proof — all 14 files should produce module and function nodes after a build."
+        },
+        {
+          "id": "design",
+          "heading": "Solution Sketch",
+          "content": "**New scanner module** — `cortex/scanners/js_scanner.py` using `tree-sitter` with `tree-sitter-javascript` and `tree-sitter-typescript` grammars. Exposes `scan_js_module(file_path, project_root, project_id)` returning `(list[CortexNode], list[CortexEdge])` — same contract as the Python scanner.\n\n**Function extraction** — Handles five JS/TS function forms: named function declarations, arrow functions assigned to const, `workflow()`/`task()` HOF wrappers, class methods, and object method shorthand. All produce `atomic_process` nodes.\n\n**Import resolution** — Builds a `name_map` from ESM `import` statements. `import type` statements are skipped (compile-time only). CommonJS `require()` supported only for static `const x = require('./module')` patterns. CDN/external library calls produce no edges (correct behavior).\n\n**Builder integration** — `builder.py` gains a JS file iterator (mirroring `_iter_python_files`) controlled by a new `js_paths` config field in `ScanConfig`. Step 3 of `build()` dispatches to the JS scanner based on file extension (`.js`, `.ts`, `.jsx`, `.tsx`).\n\n**Optional dependency** — `tree-sitter` and grammars are added as optional extras (`pip install cortex[js]`). When not installed, builder silently skips JS/TS files with a one-time warning. No import error, no crash.\n\n**Config** — `ScanConfig` gains a `js_paths` field (list of glob patterns). `CortexConfig.load()` reads `[cortex.scan] js_paths` from `cortex.toml`."
+        },
+        {
+          "id": "constraints",
+          "heading": "Constraints",
+          "content": "**Rabbit holes — don't go here:**\n- No JSX component tree extraction (JSX elements are not function calls for graph purposes)\n- No `node_modules` resolution — only project-local relative imports produce edges\n- No source map handling\n- No incremental/cached parsing — parse each file fresh on each build\n- No decorator/annotation extraction beyond `workflow()`/`task()` HOF patterns\n\n**No-gos — explicitly out of scope:**\n- Do not modify the staleness engine, database schema, or `CortexNode`/`CortexEdge` models\n- `tree-sitter` must remain optional — never add it to core dependencies\n- No auto-discovery outside `js_paths` config — if `js_paths` is empty/unset, no JS files are scanned\n\n**Trade-offs accepted:**\n- Non-ESM files (vanilla JS with `<script>` globals) get function nodes but NO edges — this is correct per ADR-006\n- Dynamic `require()` calls are silently skipped\n- TypeScript type annotations are ignored for hashing and edge purposes\n\n**Test budget:** 8–12 focused unit tests covering the five function forms, ESM import resolution, `import type` filtering, optional dependency skip, and builder integration. Use small inline JS/TS snippets, not full viz files."
+        },
+        {
+          "id": "affected-nodes",
+          "heading": "Affected Nodes",
+          "content": "**Modified (existing nodes):**\n- `cortex::cortex.index.builder` — add JS file discovery and scanner dispatch\n- `cortex::cortex.config` — add `js_paths` to `ScanConfig`\n\n**Created (new nodes):**\n- `cortex::cortex.scanners.js_scanner` — new composite_process (module)\n- Child atomic_process nodes for `scan_js_module` and internal helpers\n- Test nodes in new `tests/test_js_scanner.py`"
+        },
+        {
+          "id": "changelog-draft",
+          "heading": "Changelog Draft",
+          "content": "**Added:**\n- JS/TS scanner (`cortex/scanners/js_scanner.py`) using tree-sitter\n- Five JS/TS function forms: named declarations, arrow functions, HOF wrappers, class methods, object methods\n- ESM import resolution for `validates` edges between JS/TS modules\n- `js_paths` config field in `[cortex.scan]` for controlling which JS/TS files are scanned\n- Optional `[js]` extra in pyproject.toml (`pip install cortex[js]`)\n\n**Changed:**\n- `builder.py` dispatches to JS scanner for `.js`/`.ts`/`.jsx`/`.tsx` files\n- `ScanConfig` extended with `js_paths` field"
+        }
+      ]
     },
     {
       "id": "change-set",
