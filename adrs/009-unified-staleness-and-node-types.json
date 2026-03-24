@@ -27,10 +27,7 @@
           "node_id": "cortex::cortex.index.staleness::apply_composite_inheritance"
         },
         {
-          "node_id": "cortex::cortex.viz.server::_compute_staleness_from_history"
-        },
-        {
-          "node_id": "cortex::cortex.viz.server::_compute_staleness_rich"
+          "node_id": "cortex::cortex.index.staleness::compute_staleness"
         },
         {
           "node_id": "cortex::cortex.scanners.json_doc_scanner"

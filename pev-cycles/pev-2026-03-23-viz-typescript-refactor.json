@@ -7,7 +7,7 @@
     {
       "id": "status",
       "heading": "Status",
-      "content": "Phase: auditor\nBaseline SHA: 5e49a10e69820c7a03180ba31b63fee1cd7093a5\nStarted: 2026-03-23\nCycle ID: pev-2026-03-23-viz-typescript-refactor\n\nPhase transitions:\n- planning: 2026-03-23 — cycle created\n- builder: 2026-03-23 — plan approved\n- auditor: 2026-03-24 — builder complete, merged, 5 fix rounds applied\n"
+      "content": "Phase: completed\nBaseline SHA: 5e49a10e69820c7a03180ba31b63fee1cd7093a5\nStarted: 2026-03-23\nCycle ID: pev-2026-03-23-viz-typescript-refactor\n\nPhase transitions:\n- planning: 2026-03-23 — cycle created\n- builder: 2026-03-23 — plan approved\n- auditor: 2026-03-24 — builder complete, merged, 5 fix rounds applied\n- completed: 2026-03-24 — audit approved, branch split and rebased onto master"
     },
     {
       "id": "request",

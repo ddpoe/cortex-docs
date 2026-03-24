@@ -22,13 +22,13 @@
       "content": "| Capability | Status |\n|---|---|\n| Cytoscape.js graph render with nodes and edges | Done |\n| Node fill coloring by subtype (function=green, module=blue, docjson=orange, test=red, entity=purple, external_package=grey) | Done |\n| Staleness rings on nodes (CONTENT_STALE=blue, DESC_STALE=orange, LINKED_STALE=yellow, STRUCTURAL_DRIFT=red, VERIFIED=green) | Done |\n| Edge type toggle checkboxes | Done |\n| Layout selector — cose, dagre, breadthfirst, grid, concentric | Done |\n| Layout animation disabled (instant placement) | Done |\n| Rescan button (POST /api/rescan + graph refresh) | Done |\n| Check button (hash-based staleness refresh via shared engine, writes to DB) | Done |\n| Large project mode (>400 nodes → defaults to list view) | Done |\n| Step edge labels toggle (dFlow step numbers) | Done |\n| Node click → neighborhood graph + detail panel | Done |\n| Stale count summary in sidebar (N content stale · N linked stale) | Done |\n| `/api/all` returns persisted staleness column — no background refresh needed | Done |\n| Hub node sizing (high in-degree >3 → larger nodes) | Done |\n| Hide orphan nodes toggle | Done |\n| Distinct fill vs outline color palettes (type vs staleness never confusable) (US-GV-02) | Not started |\n| Context-driven graph launch (graph opens from list selection, not all-nodes) (US-GV-07) | Not started |\n| Spawn graph from list filter/selection (US-GV-08) | Not started |\n| Graph breadcrumbs with context label and return-to-list link (US-GV-09) | Not started |\n| Tags as doc-style cards instead of tiny chips (US-GV-10) | Not started |\n| Right-click verify on graph nodes (US-GV-11) | Not started |\n| Staleness heatmap mode toggle (US-GV-12) | Not started |\n| Expand/collapse composite nodes inline (US-GV-13) | Not started |\n| `POST /api/subgraph` endpoint for list→graph node set | Not started |",
       "links": [
         {
-          "node_id": "cortex::cortex.viz.server::_compute_staleness_rich"
-        },
-        {
           "node_id": "cortex::cortex.viz.server::run_server"
         },
         {
           "node_id": "cortex::cortex.index.staleness::record_staleness"
+        },
+        {
+          "node_id": "cortex::cortex.index.staleness::compute_staleness"
         }
       ]
     },

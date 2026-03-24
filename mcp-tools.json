@@ -153,9 +153,6 @@
       "content": "`cortex_read_doc(project_root, doc_id)` — Renders a DocJSON document as Markdown, with linked node summaries listed under each section. Each section heading is annotated with its section ID (e.g. `<!-- id: my-section-id -->`), so agents can call `cortex_update_section` immediately after reading without a separate enumeration step. Each linked function node includes a `@ path#L10-L45` suffix. Pass `doc_id=\"list\"` to see all indexed document IDs.",
       "links": [
         {
-          "node_id": "cortex::cortex.mcp_server::cortex_render_doc"
-        },
-        {
           "node_id": "cortex::cortex.mcp_server::cortex_read_doc"
         }
       ]

@@ -20,7 +20,7 @@
           "node_id": "cortex::cortex.index.db::record_doc_rename"
         },
         {
-          "node_id": "cortex::docs.features.mcp-server.interfaces.tools::cortex-render-doc"
+          "node_id": "cortex::docs.features.mcp-server.interfaces.tools::cortex-read-doc"
         },
         {
           "node_id": "cortex::cortex.mcp_server::cortex_read_doc"
