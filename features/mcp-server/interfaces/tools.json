@@ -71,7 +71,7 @@
     {
       "id": "cortex-search",
       "heading": "cortex_search",
-      "content": "Full-text search across all indexed nodes.\n\n**Parameters:**\n| Name | Type | Required | Description |\n|---|---|---|---|\n| `project_root` | str | No | Project directory |\n| `query` | str | Yes | Search query (natural language or identifiers) |\n\n**Returns:** Up to 20 results (default `max_results`) with ID, title, type, and snippet. Uses 3-stage search: FTS5 MATCH → LIKE-AND → LIKE-OR.",
+      "content": "Full-text and semantic search across all indexed nodes and doc sections.\n\n**Parameters:**\n| Name | Type | Required | Default | Description |\n|---|---|---|---|---|\n| `project_root` | str | No | — | Project directory |\n| `query` | str | Yes | — | Search query (natural language or identifiers) |\n| `level` | int | No | None | Detail level for results (1 or 2) |\n| `max_results` | int | No | 20 | Maximum results to return |\n| `node_type` | str | No | None | Filter by node type |\n| `mode` | str | No | `\"keyword\"` | Search mode: `keyword` (FTS5) or `semantic` (vector similarity) |\n| `scope` | str | No | `\"all\"` | Result scope: `code` (code nodes only), `docs` (doc sections only), or `all` |\n\n**Keyword mode:** Uses 3-stage search: FTS5 MATCH → LIKE-AND → LIKE-OR. Returns results ranked by BM25.\n\n**Semantic mode:** Embeds the query using the local embedding model (all-MiniLM-L6-v2, 384 dims) and returns nearest neighbors from the sqlite-vec virtual table. Falls back to keyword mode if sqlite-vec or embedding model is unavailable.\n\n**Returns:** Up to `max_results` results with ID, title, type, and snippet. Doc sections include their full qualified section ID.",
       "level": 2,
       "links": [
         {
