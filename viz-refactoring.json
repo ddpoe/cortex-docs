@@ -1,14 +1,23 @@
 {
   "title": "Cortex Viz Refactoring Plan",
-  "tags": ["viz", "refactoring", "architecture", "technical-debt"],
+  "tags": [
+    "viz",
+    "refactoring",
+    "architecture",
+    "technical-debt"
+  ],
   "sections": [
     {
       "id": "overview",
       "heading": "Overview",
-      "content": "The Cortex Viz SPA is ~11k lines across 9 JS files, 1 CSS file, and a 1,738-line FastAPI backend. Most of the codebase is well-scoped — `graph.js` (280 lines), `detail.js` (260), `list.js` (85) are clean single-responsibility modules. Three files concentrate the technical debt:\n\n| File | Lines | Problem |\n|---|---|---|\n| `style.css` | 3,043 | ~1,100 lines of dead light-mode CSS |\n| `docs.js` | 2,262 | God object — 8 responsibilities in one literal |\n| `server.py` | 1,738 | All API routes in one module |\n\nAdditionally, `workflow.js` and `tests.js` share ~300 lines of near-identical code with no shared abstraction.",
+      "content": "The Cortex Viz SPA is ~14k lines across 14 TypeScript source modules (compiled to ES module JS), 1 CSS file, and a 1,738-line FastAPI backend. Most modules are well-scoped — `graph.ts`, `list.ts`, `list-source-panel.ts`, `doc-tree.ts`, `doc-api.ts`, `doc-diagrams.ts` are clean single-responsibility modules. One file concentrates remaining structural debt:\n\n| File | Lines | Problem |\n|---|---|---|\n| `server.py` | 1,738 | All API routes in one module |\n\n**Completed (Tiers 1-3, 2026-03-23):**\n- Dead light-mode CSS removed (~1,100 lines), CSS custom properties on `:root`\n- Shared utilities extracted to `view-utils.ts`\n- `docs.js` god object decomposed into `doc-tree.ts`, `doc-editor.ts`, `doc-diagrams.ts`, `doc-api.ts`\n- Full TypeScript/ESM conversion with import maps and no bundler\n\n**Linked nodes:**\n- `cortex::cortex.cli` — Cortex CLI -- click-based command-line interface.\n- `cortex::cortex.viz.server` — Cortex Viz — FastAPI server for the visualization dashboard.",
       "links": [
-        {"node_id": "cortex::cortex.viz.server"},
-        {"node_id": "cortex::cortex.cli"}
+        {
+          "node_id": "cortex::cortex.viz.server"
+        },
+        {
+          "node_id": "cortex::cortex.cli"
+        }
       ]
     },
     {
@@ -51,9 +60,15 @@
       "heading": "Tier 4 — Split server.py into Route Groups",
       "content": "**Effort:** Medium (2–3 hours)  \n**Risk:** Low  \n**Impact:** Backend navigability\n\nThe 1,738-line `server.py` handles graph queries, staleness computation, dFlow cross-DB queries, DocJSON CRUD, test results, and source file serving. Split into:\n\n| Module | Routes | ~Lines |\n|---|---|---|\n| `routes_graph.py` | `/api/all`, `/api/check`, staleness computation | ~250 |\n| `routes_dflow.py` | `/api/workflows`, `/api/tasks`, `/api/tests`, step details | ~300 |\n| `routes_docs.py` | `/api/docs/*` — list, render, save, create, import, rescan | ~400 |\n| `routes_tests.py` | `/api/t1-tests`, `/api/fixtures`, `/api/junit`, test detail | ~200 |\n| `server.py` | App factory, middleware, static mount, shared DB helpers | ~200 |\n\nAlso extract `_compute_staleness_rich()` into a shared `cortex.staleness` module so `cli.py` and `server.py` use the same implementation instead of maintaining duplicate AST-parsing logic.",
       "links": [
-        {"node_id": "cortex::cortex.viz.server"},
-        {"node_id": "cortex::cortex.viz.server::run_server"},
-        {"node_id": "cortex::cortex.cli::cmd_check"}
+        {
+          "node_id": "cortex::cortex.viz.server"
+        },
+        {
+          "node_id": "cortex::cortex.viz.server::run_server"
+        },
+        {
+          "node_id": "cortex::cortex.cli::cmd_check"
+        }
       ]
     },
     {
@@ -69,7 +84,7 @@
     {
       "id": "priority-summary",
       "heading": "Priority Summary",
-      "content": "| Priority | Task | Effort | Lines Saved | Risk |\n|---|---|---|---|---|\n| 1 | Remove dead light-mode CSS + add custom properties | 1 hr | ~1,100 | None |\n| 2 | Extract `view-utils.js` | 2–3 hr | ~300 | Low |\n| 3 | Decompose `docs.js` into 4 modules | 4–6 hr | 0 (same total) | Medium |\n| 4 | Split `server.py` + extract staleness | 2–3 hr | 0 (same total) | Low |\n\nTiers 1–2 are quick wins that reduce total line count by ~1,400 with minimal risk. Tier 3 is the highest-value structural change but needs careful testing of the edit/save flow. Tier 4 improves backend navigability and eliminates the staleness duplication between server and CLI."
+      "content": "| Priority | Task | Effort | Lines Saved | Risk | Status |\n|---|---|---|---|---|---|\n| 1 | Remove dead light-mode CSS + add custom properties | 1 hr | ~1,100 | None | **Done** (2026-03-23) |\n| 2 | Extract `view-utils.ts` | 2–3 hr | ~300 | Low | **Done** (2026-03-23) |\n| 3 | Decompose `docs.js` into 4 modules | 4–6 hr | 0 (same total) | Medium | **Done** (2026-03-23) |\n| 4 | Split `server.py` + extract staleness | 2–3 hr | 0 (same total) | Low | Deferred |\n\nTiers 1-3 completed in PEV cycle `pev-2026-03-23-viz-typescript-refactor`. The conversion went beyond the original plan: all 7 JS files were converted to 14 TypeScript ES modules with strict typing, ESM imports/exports, and no implicit globals. An additional module (`list-source-panel.ts`) was extracted from `list.ts` to keep it under 300 lines. Tier 4 (server.py split) deferred to a separate cycle."
     }
   ]
 }
