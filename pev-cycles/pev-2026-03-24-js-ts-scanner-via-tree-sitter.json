@@ -1,0 +1,74 @@
+{
+  "title": "PEV Cycle: pev-2026-03-24-js-ts-scanner-via-tree-sitter",
+  "tags": [
+    "pev-cycle",
+    "pev-active"
+  ],
+  "sections": [
+    {
+      "id": "status",
+      "heading": "Status",
+      "content": "Phase: planning\nBaseline SHA: a1d1b172a0f3b0eda9100db45edb53a9ed63ddc4\nStarted: 2026-03-24\nCycle ID: pev-2026-03-24-js-ts-scanner-via-tree-sitter\n\nPhase transitions:\n- planning: 2026-03-24 — cycle created"
+    },
+    {
+      "id": "request",
+      "heading": "Request",
+      "content": "Implement ADR-006 — JS/TS scanner via tree-sitter"
+    },
+    {
+      "id": "scope",
+      "heading": "Scope",
+      "content": "(Architect fills this section)"
+    },
+    {
+      "id": "architect",
+      "heading": "Architect Plan",
+      "content": "(Architect fills this section)"
+    },
+    {
+      "id": "architect.problem",
+      "heading": "Problem",
+      "content": "(Architect fills this section)"
+    },
+    {
+      "id": "architect.user-stories",
+      "heading": "User Stories",
+      "content": "(Architect fills this section)"
+    },
+    {
+      "id": "architect.design",
+      "heading": "Solution Sketch",
+      "content": "(Architect fills this section)"
+    },
+    {
+      "id": "architect.constraints",
+      "heading": "Constraints",
+      "content": "(Architect fills this section)"
+    },
+    {
+      "id": "architect.affected-nodes",
+      "heading": "Affected Nodes",
+      "content": "(Architect fills this section)"
+    },
+    {
+      "id": "architect.changelog-draft",
+      "heading": "Changelog Draft",
+      "content": "(Architect fills this section)"
+    },
+    {
+      "id": "change-set",
+      "heading": "Change Set",
+      "content": "(Orchestrator fills after Builder merge)"
+    },
+    {
+      "id": "builder",
+      "heading": "Builder Manifest",
+      "content": "(Orchestrator writes Builder's returned manifest here)"
+    },
+    {
+      "id": "auditor",
+      "heading": "Auditor Impact Report",
+      "content": "(Auditor fills this section)"
+    }
+  ]
+}
