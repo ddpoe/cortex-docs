@@ -27,10 +27,16 @@
     {
       "id": "current-capabilities",
       "heading": "Current Capabilities",
-      "content": "| Capability | Status |\n|---|---|\n| `node_verification` table | Done |\n| `cortex mark-clean` command | Done |\n| `verified_by` field (`'agent'` / `'human'`) | Done |\n| `reason` field in verification | Done |\n| `code_hash_at` / `desc_hash_at` verification snapshots | Done |\n| Doc sections verifiable | Done |\n| `cortex check --fail-on` for CI | Done |\n| `cortex report` CLI command (`--since-sha`, `--since`, `--format text/json`, `--change-type`, `--node`, `--node-type`, `--list-refs`) | Done |\n| `cortex_report` MCP tool (same capabilities as CLI) | Done |\n| `git_sha` populated in `node_history` during builds | Done |\n| Batch `cortex_mark_clean` via `node_ids` param | Done |\n| GitHub Actions workflow | Not started |\n\n**Linked nodes:**\n- `cortex::cortex.viz.server::verify_node` — verify_node(node_id, body) — Mark a node as verified.  @ cortex/viz/server.py#L491-L515",
+      "content": "| Capability | Status |\n|---|---|\n| `node_verification` table | Done |\n| `cortex mark-clean` command | Done |\n| `verified_by` field (`'agent'` / `'human'`) | Done |\n| `reason` field in verification | Done |\n| `code_hash_at` / `desc_hash_at` verification snapshots | Done |\n| Doc sections verifiable | Done |\n| `cortex check --fail-on` for CI | Done |\n| `cortex report` CLI command (`--since-sha`, `--since`, `--format text/json`, `--change-type`, `--node`, `--node-type`, `--list-refs`) | Done |\n| `cortex_report` MCP tool (same capabilities as CLI) | Done |\n| `git_sha` populated in `node_history` during builds | Done |\n| Batch `cortex_mark_clean` via `node_ids` param | Done |\n| Shared `mark_node_clean` helper (`cortex/index/mark_clean.py`) | Done |\n| Baseline hash reset on `nodes` table after mark-clean | Done |\n| DocJSON section hashing in mark-clean (no more AST parse on JSON) | Done |\n| Step 5 verification promotion produces CLEAN (not VERIFIED) | Done |\n| GitHub Actions workflow | Not started |",
       "links": [
         {
           "node_id": "cortex::cortex.viz.server::verify_node"
+        },
+        {
+          "node_id": "cortex::cortex.index.mark_clean::mark_node_clean"
+        },
+        {
+          "node_id": "cortex::cortex.index.db::update_node_baseline"
         }
       ]
     },
