@@ -1,0 +1,32 @@
+{
+  "title": "V1 Stabilization Backlog",
+  "tags": [
+    "active"
+  ],
+  "sections": [
+    {
+      "id": "bugs",
+      "heading": "Bugs",
+      "content": "### Doc Manager\n1. **Refresh button returns \"method not allowed\"** — The refresh button in the doc manager sends a request that the server rejects.\n2. **Bullet point indentation lost in saved view** — Bullet points render indented correctly in the Tiptap editor, but display flat (no indentation) in the saved/read view.\n3. **TOC sidebar is gone** — The section TOC that showed the document's sections in the docs view is no longer present. Needs to be restored.\n4. **Sticky header missing** — When scrolling in the doc view, the top options (refresh, add new file, view source, file title) scroll away. These should be sticky/fixed at the top. Same for the TOC sidebar — it should not scroll with the main content.\n\n### Detail Panel\n5. **Source button does nothing** — Clicking the source button in the detail panel has no effect.\n\n### Graph View\n6. **Test nodes not visible** — Test nodes don't appear in the graph view. Needs investigation — may be filtered out by the API or the frontend.\n\n### Tests & Workflows Tabs\n7. **Sidebar filter panel not in dark mode** — The left sidebar with filters in the tests and workflows tabs is white instead of following the dark theme.\n\n### Workflow View\n8. **Step-to-line-number mappings often wrong** — The workflow view frequently maps dFlow steps to incorrect source line numbers. Needs a full audit.\n\n### Staleness Display\n9. **CLEAN vs VERIFIED color confusion** — The CLEAN marker is muted green while VERIFIED is bright green. The distinction is unclear for users.\n\n### All Tabs\n10. **Blank space at bottom of screen** — ~1-2 inches of dead space at the bottom across all tabs on a 27\" screen.\n11. **Sidebar scroll isolation broken** — When the mouse is over the sidebar or a region with its own scroll box, scrolling does not propagate to the main content. The sidebar should be fixed/independent and not scroll with the page. The blank space at the bottom may be related to this scroll region issue.",
+      "tags": [
+        "bugs"
+      ]
+    },
+    {
+      "id": "improvements",
+      "heading": "Improvements",
+      "content": "### Detail Panel — Links Section\n1. **Show links TO and FROM this node** — The links section should display both inbound and outbound edges.\n2. **Collapsible link groups** — Links section should be collapsible to allow navigation without clutter.\n3. **Link click navigation** — Clicking a link should navigate contextually:\n   - Doc link (DocJSON section) → opens doc manager with that file and section loaded\n   - Code node link → opens list view with the source already loaded for that node\n\n### Tests & Workflows Tabs\n4. **Group by module by default** — Tests and workflows should be grouped by module on load. Remove the \"none\" (ungrouped) option.\n5. **Collapsed by default** — All module groups should start collapsed.\n6. **Collapse All button** — Add a button to re-collapse all groups after expanding.\n\n### History Panel\n7. **Improve \"since\" filter** — Currently only shows the last commit, but feature branches often have multiple commits. Needs brainstorming on how to make the history view more useful (e.g., show all commits in a range, group by branch, expand/collapse).\n\n### List & Graph Views\n8. **Semantic search toggle** — Add a search mode selector to list and graph views: Keyword (default, FTS), Semantic (embedding-based), or Both (merged/deduplicated). Infrastructure already exists in `cortex_search` mode parameter. Could also add filter chips for node type, staleness status, and tags alongside search.",
+      "tags": [
+        "improvements"
+      ]
+    },
+    {
+      "id": "audits",
+      "heading": "Audits",
+      "content": "1. **Workflow step-to-line audit** — Systematically verify all step-to-line-number mappings in the workflow view. Fix the scanner or the rendering logic wherever they diverge.\n\n2. **Test/workflow annotation audit** — Review all tests and workflows to ensure they properly adhere to the test annotation policy and use AutoSteps effectively to make workflows as informative as possible.\n\n3. **Test and doc alignment audit** — Verify all tests match current behavior and all docs match current code. Clean up stale references, dead feature docs, and broken assumptions.\n\n4. **Tag cleanup** — Wipe all existing tags from DocJSON docs. Define and enforce a standard tag vocabulary for agent and human use. Keep tags clean and searchable.\n\n5. **Deprecate test runner** — Remove `cortex test` / test runner feature from V1 scope and update all feature docs that reference it.",
+      "tags": [
+        "audits"
+      ]
+    }
+  ]
+}

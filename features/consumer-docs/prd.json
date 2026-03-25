@@ -1,0 +1,43 @@
+{
+  "title": "PRD: Consumer Documentation Site",
+  "tags": [
+    "proposed"
+  ],
+  "sections": [
+    {
+      "id": "problem",
+      "heading": "Problem",
+      "content": "Cortex documentation today lives entirely in DocJSON — ADRs, feature PRDs, design specs, interface docs. These are optimized for development: granular, per-feature, linked to code nodes, tracked by the staleness engine. But there is no consumer-facing documentation. A new user or evaluator has no single entry point to understand what cortex does, how to use it, or what its capabilities are.\n\nDocJSON cannot be published directly — it is not compatible with MkDocs, Sphinx, ReadTheDocs, or any standard documentation hosting platform. The developer docs are scattered across dozens of feature directories with no unified narrative.\n\nThe result: understanding cortex requires jumping between feature PRDs, design specs, and ADRs, piecing together the picture manually."
+    },
+    {
+      "id": "user-stories",
+      "heading": "User Stories",
+      "content": "1. **Consumer-facing docs** — As a new user, I want a polished documentation site (Getting Started, Features, Configuration, etc.) so that I can understand and use cortex without reading internal dev specs.\n\n2. **Provenance chain** — As a maintainer, I want each consumer doc section linked to the dev spec sections that back its claims, so that when code changes propagate to LINKED_STALE on dev docs, the consumer docs also flag as needing review.\n\n3. **Automated rendering** — As a maintainer, I want a `cortex render-site` command that converts consumer-tagged DocJSON docs to Markdown files with MkDocs-compatible structure, so that publishing is a single command, not a manual copy-paste process.\n\n4. **Site map as DocJSON** — As a maintainer, I want the site navigation/TOC defined in a DocJSON site-map document, so that page order, hierarchy, and grouping are tracked by cortex and auto-generate the `mkdocs.yml` `nav:` block.\n\n5. **Staleness-aware publishing** — As a maintainer, I want to know when the published site is outdated because underlying code or dev docs changed, so that I can re-render and re-deploy with confidence."
+    },
+    {
+      "id": "approach",
+      "heading": "Approach",
+      "content": "**Option A (chosen): Site-map DocJSON drives MkDocs generation.**\n\nA site-map DocJSON document defines the consumer doc structure — page order, grouping, hierarchy. Each entry references a consumer-facing DocJSON doc by ID. The `cortex render-site` command:\n\n1. Reads the site-map doc\n2. Renders each referenced DocJSON doc to Markdown (using the existing `cortex_read_doc` render pipeline)\n3. Generates `mkdocs.yml` with the `nav:` block derived from the site-map structure\n4. Writes everything to a `site/` output directory\n\nMkDocs then builds the static HTML site from that directory. The consumer docs themselves are standard DocJSON — authored via `cortex_write_doc`, tracked by the staleness engine, linked to dev spec sections which link to code nodes.\n\n**Provenance chain:**\n```\nConsumer doc section  ->  Dev spec section  ->  Code node\n       (documents edge)    (documents edge)\n```\n\nWhen a code node changes, the dev spec goes LINKED_STALE. The staleness engine needs one enhancement: transitive LINKED_STALE propagation through doc-to-doc `documents` edges, so the consumer doc also flags."
+    },
+    {
+      "id": "components",
+      "heading": "Components",
+      "content": "1. **Site-map DocJSON format** — A new DocJSON document at `docs/consumer-site-map.json` defining page order and grouping. Each section references a consumer doc ID and optionally specifies a slug for the output filename.\n\n2. **`cortex render-site` CLI command** — Reads site-map, renders docs to markdown, generates `mkdocs.yml`, writes to output directory. Thin wrapper over existing `cortex_read_doc` rendering.\n\n3. **Transitive LINKED_STALE** — Extend `_get_linked_stale_ids` in `staleness.py` to follow doc-to-doc `documents` edges, not just doc-to-code. This enables the full provenance chain.\n\n4. **Consumer DocJSON docs** — The actual content: Getting Started, Features Overview, Configuration, etc. Tagged `consumer` for easy identification.\n\n5. **MkDocs configuration** — Base `mkdocs.yml` template with theme, plugins, and extensions. The `nav:` block is auto-generated; the rest is static config."
+    },
+    {
+      "id": "non-goals",
+      "heading": "Non-Goals",
+      "content": "- Rendering staleness badges or status indicators in the published site (tracking is behind the scenes)\n- Supporting Sphinx or other renderers (MkDocs only for now)\n- Auto-deploying to ReadTheDocs or GitHub Pages (manual or CI-triggered)\n- Replacing DocJSON with Markdown as the authoring format\n- Consumer docs for dFlow (cortex-only scope for now)"
+    },
+    {
+      "id": "current-capabilities",
+      "heading": "Current Capabilities",
+      "content": "| Capability | Status |\n|---|---|\n| Consumer DocJSON docs authored | Not started |\n| Site-map DocJSON format | Not started |\n| `cortex render-site` CLI | Not started |\n| Transitive LINKED_STALE | Not started |\n| MkDocs base config | Not started |\n| Getting Started guide | Not started |\n| Features Overview guide | Not started |\n| Configuration guide | Not started |"
+    },
+    {
+      "id": "dependencies",
+      "heading": "Dependencies",
+      "content": "- **Staleness rename** (CONTENT_STALE -> CONTENT_UPDATED, STRUCTURAL_DRIFT -> NOT_FOUND) — should land first so consumer docs use the new terminology from the start\n- **mkdocs-material** — recommended MkDocs theme (optional dependency, like tree-sitter)"
+    }
+  ]
+}

@@ -1,0 +1,288 @@
+{
+  "title": "Release: Cortex V1",
+  "tags": [
+    "active",
+    "release"
+  ],
+  "sections": [
+    {
+      "id": "overview",
+      "heading": "Overview",
+      "content": "V1 release checklist for cortex. Core features are built — indexer (Python + JS/TS scanning), MCP server, viz dashboard. This document tracks everything that must be done before V1 ships: bugs to fix, improvements to land, audits to complete, code changes, and E2E acceptance stories that become T3 tests."
+    },
+    {
+      "id": "execution-plan",
+      "heading": "Execution Plan",
+      "content": "Phased ordering — each phase builds on the one before it.\n\n| Phase | Items | Why this order |\n|-------|-------|----------------|\n| **1 — Foundation** | Staleness rename + A5 (deprecate test runner) | Clean names across the codebase; remove dead code/docs before audits waste time reviewing them |\n| **2 — Tooling** | MCP tool gaps (`delete_section`, `delete_doc`, `delete_link`, `list_tags`, `update_section` enhancements, search tag filter) | Build the tools that tag audit and consumer docs need |\n| **3 — Audit** | A4 (tag cleanup) + A1 (step-to-line audit) + A2 (annotation audit) + A6 (MCP tool consistency) | Metadata and quality cleanup — these touch different parts and can partially parallelize |\n| **4 — Validation** | A3 (test/doc alignment) + E2E acceptance stories | Prove the system works end-to-end; fix drift discovered by audits |\n| **5 — Consumer** | Transitive LINKED_STALE + consumer docs site | Provenance chain enables consumer doc staleness tracking; then write Getting Started, Features, Config |\n| **6 — Polish** | B1–B12 bugs + I1–I9 improvements | Viz/UI polish on a stable, fully documented system |"
+    },
+    {
+      "id": "code-changes",
+      "heading": "Code Changes",
+      "content": "Required code work before V1 ships.",
+      "sections": [
+        {
+          "id": "staleness-rename",
+          "heading": "Staleness Rename",
+          "content": "- [ ] CONTENT_STALE → CONTENT_UPDATED\n- [ ] DESC_STALE → DESC_UPDATED\n- [ ] STRUCTURAL_DRIFT → NOT_FOUND\n- [ ] Update staleness engine, MCP server, check output, tests, docs"
+        },
+        {
+          "id": "mcp-tool-gaps",
+          "heading": "MCP Tool Gaps",
+          "content": "- [ ] `delete_section` — destructive, needs re-index\n- [ ] `delete_link` — no other way to remove a link\n- [ ] `delete_doc` — no other way to remove a doc\n- [ ] `list_tags` — discoverability for agents\n- [ ] `update_section` — add `after`/`parent_id` for move, `tags` for section tagging\n- [ ] `cortex_search` — add tag filter"
+        },
+        {
+          "id": "transitive-linked-stale",
+          "heading": "Transitive LINKED_STALE",
+          "content": "- [ ] Extend `_get_linked_stale_ids` to follow doc-to-doc `documents` edges (enables consumer doc provenance chain)"
+        },
+        {
+          "id": "consumer-docs-site",
+          "heading": "Consumer Documentation Site",
+          "content": "- [ ] Site-map DocJSON format\n- [ ] `cortex render-site` CLI command\n- [ ] MkDocs base config\n- [ ] Consumer docs: Getting Started, Features Overview, Configuration\n- [ ] PRD: `cortex::docs.features.consumer-docs.prd`"
+        }
+      ]
+    },
+    {
+      "id": "bugs",
+      "heading": "Bugs",
+      "content": "Viz dashboard bugs to fix before V1.",
+      "sections": [
+        {
+          "id": "b1",
+          "heading": "B1: Refresh button method not allowed",
+          "content": "**Area:** Doc Manager\n\nThe refresh button in the doc manager sends a request the server rejects with \"method not allowed\"."
+        },
+        {
+          "id": "b2",
+          "heading": "B2: Bullet indentation lost in saved view",
+          "content": "**Area:** Doc Manager\n\nBullet points render indented correctly in the Tiptap editor, but display flat (no indentation) in the saved/read view."
+        },
+        {
+          "id": "b3",
+          "heading": "B3: TOC sidebar missing",
+          "content": "**Area:** Doc Manager\n\nThe section TOC that showed the document's sections in the docs view is no longer present. Needs to be restored."
+        },
+        {
+          "id": "b4",
+          "heading": "B4: Sticky header missing",
+          "content": "**Area:** Doc Manager\n\nTop options (refresh, add new file, view source, file title) scroll away when scrolling in the doc view. These should be sticky/fixed at the top. Same for the TOC sidebar — it should not scroll with the main content."
+        },
+        {
+          "id": "b5",
+          "heading": "B5: Source button does nothing",
+          "content": "**Area:** Detail Panel\n\nClicking the source button in the detail panel has no effect."
+        },
+        {
+          "id": "b6",
+          "heading": "B6: Test nodes not visible in graph",
+          "content": "**Area:** Graph View\n\nTest nodes don't appear in the graph view. May be filtered out by the API or the frontend."
+        },
+        {
+          "id": "b7",
+          "heading": "B7: Sidebar filter panel not in dark mode",
+          "content": "**Area:** Tests & Workflows Tabs\n\nThe left sidebar with filters in the tests and workflows tabs is white instead of following the dark theme."
+        },
+        {
+          "id": "b8",
+          "heading": "B8: Step-to-line mappings often wrong",
+          "content": "**Area:** Workflow View\n\nThe workflow view frequently maps dFlow steps to incorrect source line numbers. Needs a full audit."
+        },
+        {
+          "id": "b9",
+          "heading": "B9: CLEAN vs VERIFIED color confusion",
+          "content": "**Area:** Staleness Display\n\nThe CLEAN marker is muted green while VERIFIED is bright green. The distinction is unclear for users."
+        },
+        {
+          "id": "b10",
+          "heading": "B10: Blank space at bottom of screen",
+          "content": "**Area:** All Tabs\n\n~1-2 inches of dead space at the bottom across all tabs on a 27\" screen."
+        },
+        {
+          "id": "b11",
+          "heading": "B11: Sidebar scroll isolation broken",
+          "content": "**Area:** All Tabs\n\nWhen the mouse is over the sidebar or a region with its own scroll box, scrolling does not propagate to the main content. The sidebar should be fixed/independent and not scroll with the page. Related to B10."
+        },
+        {
+          "id": "b12",
+          "heading": "B12: Flash of wrong project name on refresh",
+          "content": "**Area:** All Tabs\n\nOn page refresh, project name briefly shows \"cortex viz\" instead of \"cortex\", filter options go blank (just headers), then resolves back. Likely a race condition — the app renders before the `/api/meta` or `/api/projects` response arrives, showing defaults or the viz module name instead of the active project."
+        }
+      ]
+    },
+    {
+      "id": "improvements",
+      "heading": "Improvements",
+      "content": "Feature improvements to land before V1.",
+      "sections": [
+        {
+          "id": "i1",
+          "heading": "I1: Show links TO and FROM node",
+          "content": "**Area:** Detail Panel — Links Section\n\nThe links section should display both inbound and outbound edges for the selected node."
+        },
+        {
+          "id": "i2",
+          "heading": "I2: Collapsible link groups",
+          "content": "**Area:** Detail Panel — Links Section\n\nLinks section should be collapsible to allow navigation without clutter."
+        },
+        {
+          "id": "i3",
+          "heading": "I3: Link click navigation",
+          "content": "**Area:** Detail Panel — Links Section\n\nClicking a link should navigate contextually:\n- Doc link (DocJSON section) → opens doc manager with that file and section loaded\n- Code node link → opens list view with the source already loaded for that node"
+        },
+        {
+          "id": "i4",
+          "heading": "I4: Group by module by default",
+          "content": "**Area:** Tests & Workflows Tabs\n\nTests and workflows should be grouped by module on load. Remove the \"none\" (ungrouped) option."
+        },
+        {
+          "id": "i5",
+          "heading": "I5: Collapsed by default",
+          "content": "**Area:** Tests & Workflows Tabs\n\nAll module groups should start collapsed."
+        },
+        {
+          "id": "i6",
+          "heading": "I6: Collapse All button",
+          "content": "**Area:** Tests & Workflows Tabs\n\nAdd a button to re-collapse all groups after expanding."
+        },
+        {
+          "id": "i7",
+          "heading": "I7: Improve history since filter",
+          "content": "**Area:** History Panel\n\nCurrently only shows the last commit, but feature branches often have multiple commits. Needs brainstorming on how to make the history view more useful (e.g., show all commits in a range, group by branch, expand/collapse)."
+        },
+        {
+          "id": "i8",
+          "heading": "I8: Semantic search toggle",
+          "content": "**Area:** List & Graph Views\n\nAdd a search mode selector: Keyword (default, FTS), Semantic (embedding-based), or Both (merged/deduplicated). Infrastructure already exists in `cortex_search` mode parameter. Could also add filter chips for node type, staleness status, and tags alongside search."
+        },
+        {
+          "id": "i9",
+          "heading": "I9: Subsection visual model in doc manager",
+          "content": "**Area:** Doc Manager\n\nSubsections currently render with the full overhead of a top-level section — links, metadata, spacing — just indented. This adds excessive whitespace and breaks the visual continuity that subsections are supposed to provide.\n\nNeeded:\n- **Compact subsection rendering** — Subsections should look more like headers within their parent, not standalone sections. Reduce the chrome (link badges, extra padding) and visually contain them within the parent section boundary.\n- **Empty parent sections** — When a section has no content but has subsections, it currently shows an empty box with all the overhead, then indented boxes below. Should collapse the empty parent into just a heading with its children flowing naturally underneath.\n- **Collapsible sections** — Allow sections (and subsection groups) to be collapsed/expanded, so large documents like the V1 release checklist are navigable without endless scrolling."
+        }
+      ]
+    },
+    {
+      "id": "audits",
+      "heading": "Audits",
+      "content": "Verification and cleanup work before V1.",
+      "sections": [
+        {
+          "id": "a1",
+          "heading": "A1: Workflow step-to-line audit",
+          "content": "Systematically verify all step-to-line-number mappings in the workflow view. Fix the scanner or the rendering logic wherever they diverge."
+        },
+        {
+          "id": "a2",
+          "heading": "A2: Test and workflow annotation audit",
+          "content": "Review all tests and workflows to ensure they properly adhere to the test annotation policy and use AutoSteps effectively to make workflows as informative as possible."
+        },
+        {
+          "id": "a3",
+          "heading": "A3: Test and doc alignment audit",
+          "content": "Verify all tests match current behavior and all docs match current code. Clean up stale references, dead feature docs, and broken assumptions."
+        },
+        {
+          "id": "a4",
+          "heading": "A4: Tag cleanup",
+          "content": "Wipe all existing tags from DocJSON docs. Define and enforce a standard tag vocabulary for agent and human use. Keep tags clean and searchable."
+        },
+        {
+          "id": "a5",
+          "heading": "A5: Deprecate test runner",
+          "content": "Remove `cortex test` execution machinery. Keep test discovery and the viz test tab (read-only viewing of test nodes, tiers, annotations, validates edges, step narratives).\n\n**Remove:**\n- `cortex test` CLI command — `cortex::cortex.cli::cmd_test`\n- `cortex/index/runner.py` — `cortex::cortex.index.runner`\n- `cortex/index/junit_parser.py` — `cortex::cortex.index.junit_parser`\n- `cortex/index/test_mapper.py` — `cortex::cortex.index.test_mapper`\n- `test_runs` / `test_results` DB tables — `cortex::cortex.index.db::insert_test_run`\n- Viz endpoint `get_test_runs()` — `cortex::cortex.viz.server::get_test_runs`\n- Viz UI: Run Tests button, pass/fail badges, test run history panel\n\n**Keep:**\n- Scanner indexing test nodes (tiers, purpose, steps, validates edges)\n- Viz test tab for browsing test annotations\n- `validates` edges in the graph\n\n**Docs to update:**\n- `cortex::docs.features.indexer.sub_features.test-runner.prd` (already has deprecation banner)\n- `cortex::docs.features.indexer.sub_features.test-runner.design` (already has deprecation banner)\n- References to `cortex test` in `cortex::docs.features.indexer.interfaces.cli`, `cortex::docs.features.indexer.prd`, `cortex::docs.architecture`"
+        },
+        {
+          "id": "a6",
+          "heading": "A6: MCP tool consistency audit",
+          "content": "Review all MCP tools for consistent logic, error handling, parameter naming, and return format. Ensure tools follow the same patterns for project_root validation, node resolution, scope filtering, and result formatting. Fix any divergences.\n\n**Scope:**\n- `cortex::cortex.mcp_server` — all tool handler functions\n- Parameter naming conventions (e.g. `node_id` vs `section_id` vs `doc_id`)\n- Error messages and failure modes\n- Return format consistency (header lines, count reporting, cap/offset behavior)\n- Docstring quality and accuracy (these surface as tool descriptions to agents)"
+        }
+      ]
+    },
+    {
+      "id": "acceptance-stories",
+      "heading": "E2E Acceptance Stories",
+      "content": "These become T3 integration tests. V1 ships when all pass.",
+      "sections": [
+        {
+          "id": "e1",
+          "heading": "E1: Edit function body shows staleness cascade",
+          "content": "As a developer, I want to edit a function body and run `cortex check` so that I can see which node is CONTENT_UPDATED, which doc sections are LINKED_STALE because they describe that function, and that the parent module inherited the worst child status — so I know exactly what docs need reviewing before I commit."
+        },
+        {
+          "id": "e2",
+          "heading": "E2: Rename function preserves history",
+          "content": "As a developer, I want to rename a function and run `cortex build` so that the old node shows NOT_FOUND, the new node appears with correct edges, and I can trace the rename through `cortex history` — so I don't lose track of what changed and the graph stays accurate."
+        },
+        {
+          "id": "e3",
+          "heading": "E3: New TypeScript file indexed with edges",
+          "content": "As a developer, I want to add a new TypeScript file to my project, add its path to `js_paths`, and run `cortex build` so that all its functions appear as nodes and its ESM imports produce dependency edges — so the frontend code is tracked the same way Python code is."
+        },
+        {
+          "id": "e4",
+          "heading": "E4: Multi-commit feature branch report",
+          "content": "As a developer, I want to run `cortex report --since-sha=<branch-start>` after making several commits on a feature branch so that I can see every code and doc change grouped by node across the full branch — so I can verify the work aligns with my intent before merging."
+        },
+        {
+          "id": "e5",
+          "heading": "E5: Post-merge staleness check",
+          "content": "As a developer, I want to merge a feature branch and run `cortex check` so that I can see exactly which nodes changed and which docs need updating — so nothing falls through the cracks post-merge."
+        },
+        {
+          "id": "e6",
+          "heading": "E6: Spec-code alignment verification",
+          "content": "As a developer, I want to update a design spec section and then query its linked code nodes via `cortex_graph` so that I can see whether the code matches what I just wrote — if the code is CLEAN and the spec is CONTENT_UPDATED, I know the spec drifted ahead of the code and I need to either update the code or revert the spec."
+        },
+        {
+          "id": "e7",
+          "heading": "E7: Consumer doc transitive staleness",
+          "content": "As a developer, I want to write a consumer-facing doc section that links to a dev spec section so that when the dev spec's linked code changes in the future, both the dev spec AND my consumer doc flag as needing review — so published documentation never silently drifts from reality."
+        },
+        {
+          "id": "e8",
+          "heading": "E8: Agent task flow end-to-end",
+          "content": "As an AI agent, I want to receive a task, use `cortex_search` to find relevant nodes, `cortex_graph` to trace their dependencies, and `cortex_source` to read the actual code, then after implementing changes run `cortex_check` to verify only expected nodes went stale — so I can confidently complete work without introducing untracked side effects."
+        },
+        {
+          "id": "e9",
+          "heading": "E9: Agent mark-clean resets baseline",
+          "content": "As an AI agent, I want to review stale nodes after a code change and run `cortex mark-clean` with a reason for each one so that subsequent `cortex check` shows them as CLEAN — so the next agent or developer starts from a verified baseline, not a wall of stale warnings."
+        },
+        {
+          "id": "e10",
+          "heading": "E10: Graph view full navigation",
+          "content": "As a developer, I want to open the graph view and see all node types — code modules, functions, doc sections, and tests — with staleness coloring, then click a node to see its detail panel with links to and from it, and navigate directly to the doc manager or source view from those links — so I can visually explore the codebase and its documentation without switching tools."
+        },
+        {
+          "id": "e11",
+          "heading": "E11: Semantic search discovery",
+          "content": "As a developer, I want to search for a concept in the list view using semantic search so that I find relevant nodes even when I don't know the exact function name — so discovery works the way I think, not just the way I type."
+        },
+        {
+          "id": "e12",
+          "heading": "E12: Doc editing with sticky TOC",
+          "content": "As a developer, I want to open the docs tab, see the section TOC, scroll through a document with sticky headers, and edit a section inline so that doc maintenance is fast and I never lose my place — so I actually keep docs up to date instead of deferring it."
+        },
+        {
+          "id": "e13",
+          "heading": "E13: LINKED_STALE propagates doc-to-code",
+          "content": "As a developer, I want to edit a function body that a doc section links to via a `documents` edge, and run `cortex check`, so that the doc section shows LINKED_STALE — so I know which documentation describes code that just changed and may need updating."
+        },
+        {
+          "id": "e14",
+          "heading": "E14: LINKED_STALE propagates test-to-code",
+          "content": "As a developer, I want to edit a function body that a test validates via a `validates` edge, and run `cortex check`, so that the test shows LINKED_STALE — so I know which tests cover code that changed and may need re-running or updating."
+        },
+        {
+          "id": "e15",
+          "heading": "E15: Composite inherits worst child staleness",
+          "content": "As a developer, I want a module node to inherit the worst staleness status from its child functions, so that when one function is CONTENT_UPDATED the module shows CONTENT_UPDATED, and when a child's doc section is LINKED_STALE the module shows at least LINKED_STALE — so I can see at a glance which modules are affected without expanding every function."
+        },
+        {
+          "id": "e16",
+          "heading": "E16: Workflow staleness via step delegation\",\n<parameter name=\"content\">As a developer, I want to edit a function that a dFlow AutoStep delegates to, and see the step go LINKED_STALE and the parent workflow inherit that staleness — so that `cortex check` tells me which workflows are affected by a code change, without me having to trace the delegation chain manually. (Post-unification, per ADR-005 node integration model.)"
+        }
+      ]
+    }
+  ]
+}
