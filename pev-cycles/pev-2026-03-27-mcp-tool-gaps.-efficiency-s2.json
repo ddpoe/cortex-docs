@@ -1,0 +1,110 @@
+{
+  "title": "PEV Efficiency: pev-2026-03-27-mcp-tool-gaps.",
+  "tags": [
+    "pev-efficiency",
+    "pev-cycle"
+  ],
+  "sections": [
+    {
+      "id": "summary",
+      "heading": "Summary",
+      "content": "Cycle: pev-2026-03-27-mcp-tool-gaps.\nSession: `813970e8-b7e8-4b68-afec-44625b75c2fe.jsonl`\nRecords: 402\nSubagent dispatches: 15"
+    },
+    {
+      "id": "handoff-timeline",
+      "heading": "Handoff Timeline",
+      "content": "| # | Role | Description | Calls | Duration | Gap | Issues |\n|--:|------|-------------|------:|---------:|----:|--------|\n| 1 | architect | PEV Architect: mcp-tool-gaps | 0 | — | — | — |\n| 2 | architect | Architect: write Cycle A pitch | 0 | — | — | — |\n| 3 | architect | Architect revision: scope feedback | 0 | — | — | — |\n| 4 | architect | Architect: tag audit workflow | 0 | — | — | — |\n| 5 | architect | Architect: unified update_doc design | 0 | — | — | — |\n| 6 | architect | Architect: deep design discussion | 0 | — | — | — |\n| 7 | architect | Architect: list vs search discussion | 0 | — | — | — |\n| 8 | architect | Architect: write final Cycle A pitch | 0 | — | — | — |\n| 9 | builder | PEV Builder: mcp-tool-gaps | 0 | — | — | — |\n| 10 | reviewer | PEV Reviewer: mcp-tool-gaps | 0 | — | — | — |\n| 11 | architect | Architect: plan cleanup_old_section_rows fix | 0 | — | — | — |\n| 12 | builder | Builder fix: review concerns + bug | 0 | — | — | — |\n| 13 | builder | Builder fix: preserve node_history | 0 | — | — | — |\n| 14 | reviewer | PEV Reviewer: re-review after fix | 0 | — | — | — |\n| 15 | auditor | PEV Auditor: mcp-tool-gaps | 0 | — | — | — |"
+    },
+    {
+      "id": "orchestrator",
+      "heading": "Orchestrator",
+      "content": "**109 tool calls**\n\n- 36 mcp__cortex__cortex_read_doc\n- 28 Bash\n- 12 Write\n- 8 mcp__cortex__cortex_update_section\n- 7 ToolSearch\n- 5 mcp__cortex__cortex_build\n- 5 Read\n- 3 Edit\n- 1 mcp__cortex__cortex_write_doc\n- 1 mcp__cortex__cortex_checkout\n- 1 mcp__cortex__cortex_check\n- 1 mcp__cortex__cortex_list\n- 1 Grep"
+    },
+    {
+      "id": "architect",
+      "heading": "Architect (9 dispatches, 0 calls)",
+      "content": "",
+      "sections": [
+        {
+          "id": "dispatch-1",
+          "heading": "PEV Architect: mcp-tool-gaps — 0 calls",
+          "content": "No tool calls."
+        },
+        {
+          "id": "dispatch-2",
+          "heading": "Architect: write Cycle A pitch — 0 calls",
+          "content": "No tool calls."
+        },
+        {
+          "id": "dispatch-3",
+          "heading": "Architect revision: scope feedback — 0 calls",
+          "content": "No tool calls."
+        },
+        {
+          "id": "dispatch-4",
+          "heading": "Architect: tag audit workflow — 0 calls",
+          "content": "No tool calls."
+        },
+        {
+          "id": "dispatch-5",
+          "heading": "Architect: unified update_doc design — 0 calls",
+          "content": "No tool calls."
+        },
+        {
+          "id": "dispatch-6",
+          "heading": "Architect: deep design discussion — 0 calls",
+          "content": "No tool calls."
+        },
+        {
+          "id": "dispatch-7",
+          "heading": "Architect: list vs search discussion — 0 calls",
+          "content": "No tool calls."
+        },
+        {
+          "id": "dispatch-8",
+          "heading": "Architect: write final Cycle A pitch — 0 calls",
+          "content": "No tool calls."
+        },
+        {
+          "id": "dispatch-9",
+          "heading": "Architect: plan cleanup_old_section_rows fix — 0 calls",
+          "content": "No tool calls."
+        }
+      ]
+    },
+    {
+      "id": "builder-1",
+      "heading": "Builder 1: PEV Builder: mcp-tool-gaps",
+      "content": "**PEV Builder: mcp-tool-gaps**\n\nNo tool calls captured.",
+      "sections": []
+    },
+    {
+      "id": "builder-2",
+      "heading": "Builder 2: Builder fix: review concerns + bug",
+      "content": "**Builder fix: review concerns + bug**\n\nNo tool calls captured.",
+      "sections": []
+    },
+    {
+      "id": "builder-3",
+      "heading": "Builder 3: Builder fix: preserve node_history",
+      "content": "**Builder fix: preserve node_history**\n\nNo tool calls captured.",
+      "sections": []
+    },
+    {
+      "id": "reviewers",
+      "heading": "Reviewers (2 dispatches)",
+      "content": "**2 dispatches, 0 tool calls**\n\n- PEV Reviewer: mcp-tool-gaps: 0 calls\n- PEV Reviewer: re-review after fix: 0 calls"
+    },
+    {
+      "id": "auditor-1",
+      "heading": "Auditor: PEV Auditor: mcp-tool-gaps",
+      "content": "**PEV Auditor: mcp-tool-gaps**\n\nNo tool calls captured.",
+      "sections": []
+    },
+    {
+      "id": "recommendations",
+      "heading": "Recommendations",
+      "content": "- **pev-builder** (PEV Builder: mcp-tool-gaps): dispatch missing context bundle — orchestrator should inline pitch + cortex_source output"
+    }
+  ]
+}

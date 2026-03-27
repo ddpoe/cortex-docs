@@ -1,14 +1,13 @@
 {
   "title": "PEV Cycle: pev-2026-03-27-mcp-tool-gaps",
   "tags": [
-    "pev-cycle",
-    "pev-active"
+    "pev-cycle"
   ],
   "sections": [
     {
       "id": "status",
       "heading": "Status",
-      "content": "Phase: auditor\nBaseline SHA: ab7fafcd10554d55dbdf4d26c397aca673c6958f\nStarted: 2026-03-27\nCycle ID: pev-2026-03-27-mcp-tool-gaps\n\nPhase transitions:\n- planning: 2026-03-27 — cycle created\n- architect-complete: 2026-03-27 — pitch written (5 discussion rounds)\n- builder: 2026-03-27 — plan approved\n- review: 2026-03-27 — PASS_WITH_CONCERNS, 4 issues found\n- builder-fix: 2026-03-27 — 4 issues fixed (2 iterations: history preservation correction)\n- re-review: 2026-03-27 — PASS\n- auditor: 2026-03-27 — merged, cortex rebuilt"
+      "content": "Phase: completed\nBaseline SHA: ab7fafcd10554d55dbdf4d26c397aca673c6958f\nStarted: 2026-03-27\nCycle ID: pev-2026-03-27-mcp-tool-gaps\n\nPhase transitions:\n- planning: 2026-03-27 — cycle created\n- architect-complete: 2026-03-27 — pitch written (5 discussion rounds)\n- builder: 2026-03-27 — plan approved\n- review: 2026-03-27 — PASS_WITH_CONCERNS, 4 issues found\n- builder-fix: 2026-03-27 — 4 issues fixed (2 iterations: history preservation correction)\n- re-review: 2026-03-27 — PASS\n- auditor: 2026-03-27 — merged, cortex rebuilt\n- completed: 2026-03-27 — commit 0a1a6f9"
     },
     {
       "id": "request",

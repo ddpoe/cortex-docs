@@ -1,0 +1,30 @@
+{
+  "title": "PEV Efficiency: pev-2026-03-27-mcp-tool-gaps",
+  "tags": [
+    "pev-efficiency",
+    "pev-cycle"
+  ],
+  "sections": [
+    {
+      "id": "summary",
+      "heading": "Summary",
+      "content": "Cycle: pev-2026-03-27-mcp-tool-gaps\nSession: `09cf0450-2798-4d10-aa57-34db3b2ec644.jsonl`\nRecords: 58\nSubagent dispatches: 1"
+    },
+    {
+      "id": "handoff-timeline",
+      "heading": "Handoff Timeline",
+      "content": "| # | Role | Description | Calls | Duration | Gap | Issues |\n|--:|------|-------------|------:|---------:|----:|--------|\n| 1 | claude-code-guide | Bash permission pattern matching | 0 | — | — | — |"
+    },
+    {
+      "id": "orchestrator",
+      "heading": "Orchestrator",
+      "content": "**15 tool calls**\n\n- 6 Bash\n- 5 Glob\n- 3 Read\n- 1 Edit"
+    },
+    {
+      "id": "builder-1",
+      "heading": "Builder: Bash permission pattern matching",
+      "content": "**Bash permission pattern matching**\n\nNo tool calls captured.",
+      "sections": []
+    }
+  ]
+}
