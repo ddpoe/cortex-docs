@@ -1,14 +1,13 @@
 {
   "title": "PEV Cycle: pev-2026-03-27-mcp-tool-enhancements-batch",
   "tags": [
-    "pev-cycle",
-    "pev-active"
+    "pev-cycle"
   ],
   "sections": [
     {
       "id": "status",
       "heading": "Status",
-      "content": "Phase: builder (extra workstream 4)\nBaseline SHA: 76db5b765c88b0d79edb709004b7be085de38fea\nStarted: 2026-03-27\nCycle ID: pev-2026-03-27-mcp-tool-enhancements-batch\n\nPhase transitions:\n- planning: 2026-03-27 — cycle created\n- builder: 2026-03-27 — plan approved\n- review: 2026-03-27 — builder complete (FAIL iteration 1, PASS iteration 2)\n- auditor: 2026-03-27 — code merged, review passed\n- audit-complete: 2026-03-27 — audit done, no fixes needed\n- builder (WS4): 2026-03-27 — extra workstream added post-audit (purge refactor)"
+      "content": "Phase: completed\nBaseline SHA: 76db5b765c88b0d79edb709004b7be085de38fea\nStarted: 2026-03-27\nCycle ID: pev-2026-03-27-mcp-tool-enhancements-batch\n\nPhase transitions:\n- planning: 2026-03-27 — cycle created\n- builder: 2026-03-27 — plan approved\n- review: 2026-03-27 — builder complete (FAIL iteration 1, PASS iteration 2)\n- auditor: 2026-03-27 — code merged, review passed\n- audit-complete: 2026-03-27 — audit done, no fixes needed\n- builder (WS4): 2026-03-27 — extra workstream added post-audit (purge refactor)\n- review (WS4): 2026-03-27 — PASS_WITH_CONCERNS, fix applied\n- completed: 2026-03-27 — all workstreams complete, committed"
     },
     {
       "id": "request",

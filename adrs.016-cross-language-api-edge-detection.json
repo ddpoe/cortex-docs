@@ -1,0 +1,30 @@
+{
+  "title": "ADR-016: Cross-Language API Edge Detection",
+  "sections": [
+    {
+      "id": "status",
+      "heading": "Status",
+      "content": "**Status:** Proposed\n\n**Date:** 2026-03-27\n\n**Decider:** dap182"
+    },
+    {
+      "id": "context",
+      "heading": "Context & Problem Statement",
+      "content": "The cortex graph has no edges connecting JS frontend code to Python backend code. The viz dashboard's JS files call the FastAPI backend via `fetch()` and `apiFetch()` with literal URL strings like `'/api/meta'` or `` `/api/nodes/${id}` ``, but the JS scanner only produces `depends_on` edges for ESM imports and `composes` edges for parent-child relationships. The Python scanner tags HTTP endpoint functions with `entrypoint:http` but does not record the route path.\n\nThis means:\n- `cortex_graph` cannot show which JS functions depend on which Python endpoints\n- The PEV auditor cannot trace frontend-to-backend dependencies when reviewing changes\n- Dead endpoints and broken API references are invisible to `cortex_check`\n\nThe JS scanner uses tree-sitter and the Python scanner uses AST — both have full syntax tree access to detect the relevant patterns."
+    },
+    {
+      "id": "decision",
+      "heading": "The Decision",
+      "content": "We will use convention-based route matching to detect `fetch()`/`apiFetch()` calls in JS and match them against `@app.get()`/`@router.post()` route decorators in Python, emitting `calls_api` edges.\n\n### 1. Python scanner: extract route metadata\n\nThe `_extract_tags` function in `module_scanner.py` already detects `entrypoint:http` decorators. Extend it to also extract the route path string and HTTP method from the decorator's first positional argument (e.g., `@app.get(\"/api/meta\")` → path `/api/meta`, method `GET`). Store these in the node's `dflow_meta` dict as `{\"route_path\": \"/api/meta\", \"route_method\": \"GET\"}`.\n\n### 2. JS scanner: detect fetch call sites\n\nAdd a tree-sitter query in `js_scanner.py` to find all `fetch()` and `apiFetch()` call expressions. Extract the first argument (the URL). Classify each call:\n\n- **Literal string** starting with `/api/` → resolvable, store normalized path\n- **Template literal** with `/api/` prefix → resolvable, normalize `${...}` segments to `{param}` placeholders\n- **Anything else** (variable, concatenation, non-API URL) → tag the containing function node with `unresolved-api-call`\n\nStore resolved paths as metadata on the containing function node (e.g., `{\"api_calls\": [\"/api/meta\", \"/api/nodes/{param}\"]}`). Also store the HTTP method when detectable from a `method` option in the fetch init object; default to `GET`.\n\n### 3. Post-scan route matching in builder.py\n\nAfter both the Python and JS scanners have run, add a matching pass in `builder.py`:\n\n1. Collect all Python nodes with `route_path` in their metadata → build a lookup dict `{(method, path_pattern) → node_id}`\n2. Collect all JS nodes with `api_calls` in their metadata\n3. For each JS api_call path, normalize and match against Python route patterns (FastAPI path params like `{node_id}` match any `{param}` placeholder)\n4. Emit `calls_api` edges: `from=js_function_node_id`, `to=python_endpoint_node_id`\n5. Unmatched JS paths (no corresponding Python route) get tagged `unresolved-api-call`\n\n### 4. cortex_check: surface gaps\n\nAdd two new sections to `cortex_check` output:\n\n- **Unresolved API calls** — JS function nodes tagged `unresolved-api-call`, showing file location and the call expression that couldn't be resolved\n- **Uncalled HTTP endpoints** — Python nodes with `entrypoint:http` tag and `route_path` metadata but zero incoming `calls_api` edges. These are either dead endpoints or called via patterns the scanner can't parse"
+    },
+    {
+      "id": "constraints",
+      "heading": "Constraints & Conventions",
+      "content": "This approach relies on conventions that the codebase already follows:\n\n1. **Route paths must be literal strings** in Python decorators — `@app.get(\"/api/nodes\")` works, `@app.get(BASE + \"/nodes\")` does not\n2. **JS fetch calls must use literal or template-literal URLs** — `apiFetch('/api/meta')` and `` fetch(`/api/nodes/${id}`) `` work, `fetch(buildUrl(endpoint))` does not\n3. **Local API calls start with `/api/`** — this prefix distinguishes local backend calls from external HTTP requests\n\nViolating these conventions doesn't break anything — the edge is simply not created, and the call shows up as `unresolved-api-call` in `cortex_check` output."
+    },
+    {
+      "id": "consequences",
+      "heading": "Consequences",
+      "content": "- **Positive:** `cortex_graph` can trace JS → Python dependencies across the full stack. The PEV auditor can see which frontend functions are affected by backend endpoint changes. Dead endpoints and broken API references surface automatically in `cortex_check`.\n- **Positive:** Zero manual annotation required — detection is fully automatic for code following existing conventions.\n- **Negative:** Dynamic URL construction silently produces no edge. The `unresolved-api-call` tag mitigates this but requires someone to check `cortex_check` output.\n- **Negative:** Path parameter matching uses simple placeholder normalization. Two routes differing only by param name (rare) could produce ambiguous matches.\n- **Neutral:** Adds a new edge type `calls_api` to the graph vocabulary. Existing tools that enumerate edges will pick it up automatically.\n- **Neutral:** Route metadata extraction adds a small amount of work to both scanners but no new dependencies."
+    }
+  ]
+}
