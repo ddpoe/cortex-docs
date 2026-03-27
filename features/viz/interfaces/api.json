@@ -83,7 +83,7 @@
     {
       "id": "test-endpoints",
       "heading": "Test Endpoints",
-      "content": "| Method | Path | Description |\n|---|---|---|\n| GET | `/api/tests` | List dFlow `@test_workflow` / `@test_suite` items |\n| GET | `/api/t1_tests` | List T1 tests (unannotated pytest functions) |\n| GET | `/api/fixtures` | List pytest fixtures with validates edges |\n| GET | `/api/junit` | Latest JUnit/JSON test results per test name |\n| GET | `/api/test-runs` | All test run records (timestamp, git SHA, summary) |\n| GET | `/api/test/{id}/detail` | Fixture data and coverage for a specific test |\n| GET | `/api/test/{id}/steps` | Step breakdown for a test function |",
+      "content": "| Method | Path | Description |\n|---|---|---|\n| GET | `/api/tests` | List dFlow `@test_workflow` / `@test_suite` items |\n| GET | `/api/t1_tests` | List T1 tests (unannotated pytest functions) |\n| GET | `/api/fixtures` | List pytest fixtures with validates edges |\n| GET | `/api/test/{id}/detail` | Fixture data and coverage for a specific test |\n| GET | `/api/test/{id}/steps` | Step breakdown for a test function |\n\n**Removed endpoints (A5 deprecation):** `/api/junit` (JUnit/JSON test results), `/api/test-runs` (test run records), `POST /api/test/run` (trigger test execution). See PEV cycle `pev-2026-03-27-deprecate-test-runner`.",
       "level": 2
     },
     {
