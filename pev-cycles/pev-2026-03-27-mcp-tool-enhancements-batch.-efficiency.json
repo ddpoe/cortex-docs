@@ -1,0 +1,98 @@
+{
+  "title": "PEV Efficiency: pev-2026-03-27-mcp-tool-enhancements-batch.",
+  "tags": [
+    "pev-efficiency",
+    "pev-cycle"
+  ],
+  "sections": [
+    {
+      "id": "summary",
+      "heading": "Summary",
+      "content": "Cycle: pev-2026-03-27-mcp-tool-enhancements-batch.\nSession: `1d57b97a-de3c-4a70-891d-0e4b65ebc8a0.jsonl`\nRecords: 439\nSubagent dispatches: 13"
+    },
+    {
+      "id": "handoff-timeline",
+      "heading": "Handoff Timeline",
+      "content": "| # | Role | Description | Calls | Duration | Gap | Issues |\n|--:|------|-------------|------:|---------:|----:|--------|\n| 1 | architect | Architect: plan MCP enhancements | 0 | — | — | — |\n| 2 | architect | Architect: continue with answers | 0 | — | — | — |\n| 3 | architect | Architect: write pitch to manifest | 0 | — | — | — |\n| 4 | Explore | Check MCP tool parameter patterns | 0 | — | — | — |\n| 5 | builder | Builder: implement MCP enhancements | 0 | — | — | — |\n| 6 | reviewer | Reviewer: review Builder changes | 0 | — | — | — |\n| 7 | builder | Builder fix: add missing decorator | 0 | — | — | — |\n| 8 | reviewer | Reviewer: re-review after fix | 0 | — | — | — |\n| 9 | auditor | Auditor: validate and update docs | 0 | — | — | — |\n| 10 | auditor | Auditor: complete remaining checks | 0 | — | — | — |\n| 11 | builder | Builder: purge refactor (WS4) | 0 | — | — | — |\n| 12 | reviewer | Reviewer: quick review WS4 purge | 0 | — | — | — |\n| 13 | builder | Builder fix: doc reason + single conn | 0 | — | — | — |"
+    },
+    {
+      "id": "orchestrator",
+      "heading": "Orchestrator",
+      "content": "**129 tool calls**\n\n- 42 Bash\n- 32 mcp__cortex__cortex_read_doc\n- 15 mcp__cortex__cortex_update_section\n- 12 Write\n- 7 ToolSearch\n- 7 Read\n- 4 mcp__cortex__cortex_build\n- 3 mcp__cortex__cortex_checkout\n- 2 Glob\n- 1 mcp__cortex__cortex_write_doc\n- 1 mcp__cortex__cortex_check\n- 1 mcp__cortex__cortex_update_doc_meta\n- 1 Grep\n- 1 Edit"
+    },
+    {
+      "id": "architect",
+      "heading": "Architect (3 dispatches, 0 calls)",
+      "content": "",
+      "sections": [
+        {
+          "id": "dispatch-1",
+          "heading": "Architect: plan MCP enhancements — 0 calls",
+          "content": "No tool calls."
+        },
+        {
+          "id": "dispatch-2",
+          "heading": "Architect: continue with answers — 0 calls",
+          "content": "No tool calls."
+        },
+        {
+          "id": "dispatch-3",
+          "heading": "Architect: write pitch to manifest — 0 calls",
+          "content": "No tool calls."
+        }
+      ]
+    },
+    {
+      "id": "builder-1",
+      "heading": "Builder 1: Check MCP tool parameter patterns",
+      "content": "**Check MCP tool parameter patterns**\n\nNo tool calls captured.",
+      "sections": []
+    },
+    {
+      "id": "builder-2",
+      "heading": "Builder 2: Builder: implement MCP enhancements",
+      "content": "**Builder: implement MCP enhancements**\n\n70 tool calls in 10.6 min\n\n**Category breakdown:**\n\n**Tool frequency:**",
+      "sections": []
+    },
+    {
+      "id": "builder-3",
+      "heading": "Builder 3: Builder fix: add missing decorator",
+      "content": "**Builder fix: add missing decorator**\n\n20 tool calls in 3.4 min\n\n**Category breakdown:**\n\n**Tool frequency:**",
+      "sections": []
+    },
+    {
+      "id": "builder-4",
+      "heading": "Builder 4: Builder: purge refactor (WS4)",
+      "content": "**Builder: purge refactor (WS4)**\n\n70 tool calls in 9.0 min\n\n**Category breakdown:**\n\n**Tool frequency:**",
+      "sections": []
+    },
+    {
+      "id": "builder-5",
+      "heading": "Builder 5: Builder fix: doc reason + single conn",
+      "content": "**Builder fix: doc reason + single conn**\n\n58 tool calls in 35.1 min\n\n**Category breakdown:**\n\n**Tool frequency:**",
+      "sections": []
+    },
+    {
+      "id": "reviewers",
+      "heading": "Reviewers (3 dispatches)",
+      "content": "**3 dispatches, 0 tool calls**\n\n- Reviewer: review Builder changes: 0 calls\n- Reviewer: re-review after fix: 0 calls\n- Reviewer: quick review WS4 purge: 0 calls"
+    },
+    {
+      "id": "auditor-1",
+      "heading": "Auditor 1: Auditor: validate and update docs",
+      "content": "**Auditor: validate and update docs**\n\n53 tool calls in 5.8 min\n\n**Category breakdown:**\n\n**Tool frequency:**",
+      "sections": []
+    },
+    {
+      "id": "auditor-2",
+      "heading": "Auditor 2: Auditor: complete remaining checks",
+      "content": "**Auditor: complete remaining checks**\n\n25 tool calls in 3.5 min\n\n**Category breakdown:**\n\n**Tool frequency:**",
+      "sections": []
+    },
+    {
+      "id": "recommendations",
+      "heading": "Recommendations",
+      "content": "- **pev-builder** (Builder: implement MCP enhancements): dispatch missing context bundle — orchestrator should inline pitch + cortex_source output\n- **pev-builder** (Builder: purge refactor (WS4)): dispatch missing context bundle — orchestrator should inline pitch + cortex_source output"
+    }
+  ]
+}
