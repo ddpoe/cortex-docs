@@ -28,7 +28,7 @@
         {
           "id": "mcp-tool-gaps",
           "heading": "MCP Tool Gaps",
-          "content": "- [ ] `delete_section` — destructive, needs re-index\n- [ ] `delete_link` — no other way to remove a link\n- [ ] `delete_doc` — no other way to remove a doc\n- [ ] `list_tags` — discoverability for agents\n- [ ] `update_section` — add `after`/`parent_id` for move, `tags` for section tagging\n- [ ] `cortex_search` — add tag filter"
+          "content": "- [ ] `delete_section` — destructive, needs re-index\n- [ ] `delete_link` — no other way to remove a link\n- [ ] `delete_doc` — no other way to remove a doc\n- [ ] `list_tags` — discoverability for agents\n- [ ] `update_section` — add `after`/`parent_id` for move, `tags` for section tagging\n- [ ] `cortex_search` — add tag filter\n- [ ] `cortex_source` — batch mode: accept list of node_ids, return all sources in one call (Builder reads 3-6 functions per edit)\n- [ ] `cortex_graph` — batch mode: accept list of node_ids, return combined graph (check callers/deps for multiple nodes at once)\n- [ ] `cortex_read_doc` — multi-section mode: accept list of section slugs, return all in one call (orchestrator reads 5+ sections sequentially)"
         },
         {
           "id": "transitive-linked-stale",
