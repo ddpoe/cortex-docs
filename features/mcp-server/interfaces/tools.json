@@ -27,7 +27,7 @@
     {
       "id": "cortex-build",
       "heading": "cortex_build",
-      "content": "Rebuild the cortex index by scanning source files.\n\n**Parameters:**\n| Name | Type | Required | Description |\n|---|---|---|---|\n| `project_root` | str | No (default '.') | Project directory to scan |\n\n**Returns:** Summary of nodes and edges indexed.",
+      "content": "Rebuild the cortex index by scanning source files (discovery-only). Optionally purge NOT_FOUND nodes.\n\n**Parameters:**\n| Name | Type | Required | Default | Description |\n|---|---|---|---|---|\n| `project_root` | str | Yes | — | Absolute path to the project to index |\n| `verbose` | bool | No | `False` | Include all warning details in output |\n| `purge` | bool | No | `False` | After build, remove all nodes whose source files no longer exist on disk (NOT_FOUND nodes), along with their edges, tags, FTS entries, and history. Destructive. |\n\n**Returns:** Summary of nodes/edges indexed, staleness counts, and purge results (if requested).",
       "level": 2,
       "links": [
         {
@@ -71,7 +71,7 @@
     {
       "id": "cortex-search",
       "heading": "cortex_search",
-      "content": "Full-text and semantic search across all indexed nodes and doc sections.\n\n**Parameters:**\n| Name | Type | Required | Default | Description |\n|---|---|---|---|---|\n| `project_root` | str | No | — | Project directory |\n| `query` | str | Yes | — | Search query (natural language or identifiers) |\n| `level` | int | No | None | Detail level for results (1 or 2) |\n| `max_results` | int | No | 20 | Maximum results to return |\n| `node_type` | str | No | None | Filter by node type |\n| `mode` | str | No | `\"keyword\"` | Search mode: `keyword` (FTS5) or `semantic` (vector similarity) |\n| `scope` | str | No | `\"all\"` | Result scope: `code` (code nodes only), `docs` (doc sections only), or `all` |\n\n**Keyword mode:** Uses 3-stage search: FTS5 MATCH → LIKE-AND → LIKE-OR. Returns results ranked by BM25.\n\n**Semantic mode:** Embeds the query using the local embedding model (all-MiniLM-L6-v2, 384 dims) and returns nearest neighbors from the sqlite-vec virtual table. Falls back to keyword mode if sqlite-vec or embedding model is unavailable.\n\n**Returns:** Up to `max_results` results with ID, title, type, and snippet. Doc sections include their full qualified section ID.",
+      "content": "Full-text and semantic search across all indexed nodes and doc sections.\n\n**Parameters:**\n| Name | Type | Required | Default | Description |\n|---|---|---|---|---|\n| `project_root` | str | Yes | — | Absolute path to the indexed project |\n| `query` | str | Yes | — | Search query (natural language or identifiers) |\n| `level` | int | No | None | Detail level for results (1 or 2) |\n| `max_results` | int | No | 20 | Maximum results to return |\n| `node_type` | str | No | None | Filter by node type |\n| `mode` | str | No | `\"keyword\"` | Search mode: `keyword` (FTS5) or `semantic` (vector similarity) |\n| `scope` | str | No | `\"all\"` | Result scope: `code` (code nodes only), `docs` (doc sections only), or `all` |\n| `tag` | str | No | None | Only return nodes with this tag. Applied as post-filter after FTS ranking. When tag filter is active and no matches are found, returns empty instead of falling through to LIKE-OR fallback. |\n\n**Keyword mode:** Uses 3-stage search: FTS5 MATCH, LIKE-AND, LIKE-OR. Returns results ranked by BM25. Tag filter is applied after each stage.\n\n**Semantic mode:** Embeds the query using the local embedding model (all-MiniLM-L6-v2, 384 dims) and returns nearest neighbors from the sqlite-vec virtual table. Falls back to keyword mode if sqlite-vec or embedding model is unavailable. Tag filter not yet supported in semantic mode.\n\n**Returns:** Up to `max_results` results with ID, title, type, and snippet. Doc sections include their full qualified section ID.",
       "level": 2,
       "links": [
         {
@@ -212,6 +212,46 @@
       "links": [
         {
           "node_id": "cortex::cortex.mcp_server::cortex_add_section"
+        }
+      ]
+    },
+    {
+      "id": "cortex-delete-section",
+      "heading": "cortex_delete_section",
+      "content": "Delete a section (and all nested children) from a DocJSON document. Destructive.\n\n**Parameters:**\n| Name | Type | Required | Description |\n|---|---|---|---|\n| `project_root` | str | Yes | Absolute path to the indexed project |\n| `section_id` | str | Yes | Full qualified section ID, e.g. `myproject::docs.architecture::database-layer` or `myproject::docs.architecture::database-layer.tables` |\n\n**Behavior:** Removes the section from the JSON file on disk, then cleans up all DB rows (nodes, edges, doc_sections, tags, FTS entries, verification). Node history is preserved as an audit trail. Nested children are deleted recursively.\n\n**Returns:** Confirmation message or error if section not found.",
+      "links": [
+        {
+          "node_id": "cortex::cortex.mcp_server::cortex_delete_section"
+        }
+      ]
+    },
+    {
+      "id": "cortex-delete-doc",
+      "heading": "cortex_delete_doc",
+      "content": "Delete an entire DocJSON document, its JSON file, and all DB artifacts. Destructive.\n\n**Parameters:**\n| Name | Type | Required | Description |\n|---|---|---|---|\n| `project_root` | str | Yes | Absolute path to the indexed project |\n| `doc_id` | str | Yes | Full doc node ID, e.g. `myproject::docs.architecture` |\n\n**Behavior:** Deletes the JSON file from disk, then calls `delete_doc_by_id` which removes all nodes, edges, sections, tags, FTS entries, and history for the doc. No confirmation prompt.\n\n**Returns:** Confirmation message or error if doc not found.",
+      "links": [
+        {
+          "node_id": "cortex::cortex.mcp_server::cortex_delete_doc"
+        }
+      ]
+    },
+    {
+      "id": "cortex-delete-link",
+      "heading": "cortex_delete_link",
+      "content": "Remove a single `documents` edge from a doc section to a code node. Destructive.\n\n**Parameters:**\n| Name | Type | Required | Description |\n|---|---|---|---|\n| `project_root` | str | Yes | Absolute path to the indexed project |\n| `section_id` | str | Yes | Full qualified section ID, e.g. `myproject::docs.architecture::database-layer` |\n| `node_id` | str | Yes | The code node ID to unlink |\n\n**Behavior:** Removes the link from the JSON file, re-indexes the document, and records a `LINK_REMOVED` history event. Other links and content in the section are untouched.\n\n**Returns:** Confirmation message, or \"Link not found\" if the edge does not exist.",
+      "links": [
+        {
+          "node_id": "cortex::cortex.mcp_server::cortex_delete_link"
+        }
+      ]
+    },
+    {
+      "id": "cortex-list-tags",
+      "heading": "cortex_list_tags",
+      "content": "List all distinct tags in the index with node counts. Useful for discovering available tags before filtering with `cortex_list(tag=...)` or `cortex_search(tag=...)`.\n\n**Parameters:**\n| Name | Type | Required | Description |\n|---|---|---|---|\n| `project_root` | str | Yes | Absolute path to the indexed project |\n\n**Returns:** Table of tags and their node counts, or \"No tags found in index.\" if empty.",
+      "links": [
+        {
+          "node_id": "cortex::cortex.mcp_server::cortex_list_tags"
         }
       ]
     },
