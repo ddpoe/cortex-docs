@@ -8,7 +8,7 @@
     {
       "id": "status",
       "heading": "Status",
-      "content": "Phase: completing\nBaseline SHA: 47d8d02\nStarted: 2026-03-26\nCycle ID: pev-2026-03-25-staleness-two-column-split\n\nPhase transitions:\n- planning: 2026-03-25 — cycle created (v1)\n- architect iterations: 2026-03-25 — v2 pitch with task breakdown selected as canonical\n- builder: 2026-03-26 — consolidated cycle, fresh builder start\n- builder complete: 2026-03-26 — 3 incarnations + 2 targeted fixes + orchestrator fix\n- reviewer: 2026-03-26 — PASS after fixes\n- merged: 2026-03-26 — fast-forward merge\n- legacy purge: 2026-03-26 — removed all old staleness terminology\n- auditor: 2026-03-26 — 259 nodes reviewed, 8 docs updated, 0 issues\n- completing: 2026-03-26 — awaiting final approval"
+      "content": "Phase: completed\nBaseline SHA: 47d8d02\nStarted: 2026-03-26\nCompleted: 2026-03-27\nCycle ID: pev-2026-03-25-staleness-two-column-split\n\nPhase transitions:\n- planning: 2026-03-25 — cycle created (v1)\n- architect: 2026-03-25 — v2 pitch with task breakdown selected as canonical\n- builder: 2026-03-26 — 3 incarnations + 2 targeted fixes\n- reviewer: 2026-03-26 — PASS after fixes\n- merged: 2026-03-26 — fast-forward merge\n- legacy purge: 2026-03-26 — removed all old staleness terminology\n- constants refactor: 2026-03-27 — centralized status names in cortex/index/status.py\n- auditor: 2026-03-26 — 259 nodes reviewed, 50+ doc sections updated\n- completed: 2026-03-27"
     },
     {
       "id": "request",
