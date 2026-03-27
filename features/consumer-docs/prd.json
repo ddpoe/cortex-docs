@@ -37,7 +37,7 @@
     {
       "id": "dependencies",
       "heading": "Dependencies",
-      "content": "- **Staleness rename** (CONTENT_STALE -> CONTENT_UPDATED, STRUCTURAL_DRIFT -> NOT_FOUND) — should land first so consumer docs use the new terminology from the start\n- **mkdocs-material** — recommended MkDocs theme (optional dependency, like tree-sitter)"
+      "content": "- **Staleness rename** (landed) — consumer docs use the new two-column terminology (CONTENT_UPDATED, NOT_FOUND, etc.) from the start\n- **mkdocs-material** — recommended MkDocs theme (optional dependency, like tree-sitter)"
     }
   ]
 }

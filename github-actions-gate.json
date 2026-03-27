@@ -15,7 +15,7 @@
     {
       "id": "strictness-levels",
       "heading": "Strictness Levels",
-      "content": "The action is configurable with a strictness level that controls what counts as acceptable:\n\n| Level | Description |\n|---|---|\n| `stale` | Fails if any node is DESC_STALE or STRUCTURAL_DRIFT |\n| `agent` | Fails if any node is not at minimum AGENT_VERIFIED |\n| `human` | Fails if any node is not HUMAN_VERIFIED — agent verification alone is insufficient |\n\nStrictness level is set per-repo in the workflow YAML. Teams can choose the appropriate gate for their trust model."
+      "content": "The action is configurable with a strictness level that controls what counts as acceptable:\n\n| Level | Description |\n|---|---|\n| `stale` | Fails if any node is DESC_UPDATED or NOT_FOUND |\n| `agent` | Fails if any node is not at minimum AGENT_VERIFIED |\n| `human` | Fails if any node is not HUMAN_VERIFIED — agent verification alone is insufficient |\n\nStrictness level is set per-repo in the workflow YAML. Teams can choose the appropriate gate for their trust model."
     },
     {
       "id": "impact-report",

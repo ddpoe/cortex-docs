@@ -13,7 +13,7 @@
     {
       "id": "execution-plan",
       "heading": "Execution Plan",
-      "content": "Phased ordering — each phase builds on the one before it.\n\n| Phase | Items | Why this order |\n|-------|-------|----------------|\n| **1 — Foundation** | Staleness rename + A5 (deprecate test runner) | Clean names across the codebase; remove dead code/docs before audits waste time reviewing them |\n| **2 — Tooling** | MCP tool gaps (`delete_section`, `delete_doc`, `delete_link`, `list_tags`, `update_section` enhancements, search tag filter) | Build the tools that tag audit and consumer docs need |\n| **3 — Audit** | A4 (tag cleanup) + A1 (step-to-line audit) + A2 (annotation audit) + A6 (MCP tool consistency) | Metadata and quality cleanup — these touch different parts and can partially parallelize |\n| **4 — Validation** | A3 (test/doc alignment) + E2E acceptance stories | Prove the system works end-to-end; fix drift discovered by audits |\n| **5 — Consumer** | Transitive LINKED_STALE + consumer docs site | Provenance chain enables consumer doc staleness tracking; then write Getting Started, Features, Config |\n| **6 — Polish** | B1–B12 bugs + I1–I9 improvements | Viz/UI polish on a stable, fully documented system |"
+      "content": "Phased ordering — each phase builds on the one before it.\n\n| Phase | Items | Why this order | Status |\n|-------|-------|----------------|--------|\n| **1 — Foundation** | ~~Staleness rename~~ + A5 (deprecate test runner) | Clean names across the codebase; remove dead code/docs before audits waste time reviewing them | Staleness rename done (PEV 2026-03-25). A5 pending. |\n| **2 — Tooling** | MCP tool gaps (`delete_section`, `delete_doc`, `delete_link`, `list_tags`, `update_section` enhancements, search tag filter) | Build the tools that tag audit and consumer docs need | Pending |\n| **3 — Audit** | A4 (tag cleanup) + A1 (step-to-line audit) + A2 (annotation audit) + A6 (MCP tool consistency) | Metadata and quality cleanup — these touch different parts and can partially parallelize | Pending |\n| **4 — Validation** | A3 (test/doc alignment) + E2E acceptance stories | Prove the system works end-to-end; fix drift discovered by audits | Pending |\n| **5 — Consumer** | Transitive LINKED_STALE + consumer docs site | Provenance chain enables consumer doc staleness tracking; then write Getting Started, Features, Config | Pending |\n| **6 — Polish** | B1–B12 bugs + I1–I9 improvements | Viz/UI polish on a stable, fully documented system | Pending |"
     },
     {
       "id": "code-changes",
@@ -23,7 +23,7 @@
         {
           "id": "staleness-rename",
           "heading": "Staleness Rename",
-          "content": "- [ ] CONTENT_STALE → CONTENT_UPDATED\n- [ ] DESC_STALE → DESC_UPDATED\n- [ ] STRUCTURAL_DRIFT → NOT_FOUND\n- [ ] Update staleness engine, MCP server, check output, tests, docs"
+          "content": "- [x] CONTENT_STALE → CONTENT_UPDATED\n- [x] DESC_STALE → DESC_UPDATED\n- [x] STRUCTURAL_DRIFT → NOT_FOUND\n- [x] Update staleness engine, MCP server, check output, tests, docs"
         },
         {
           "id": "mcp-tool-gaps",

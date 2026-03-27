@@ -1,6 +1,11 @@
 {
   "title": "Division of Labor: Product Architect vs Implementer",
-  "tags": ["guide", "workflow", "templates", "roles"],
+  "tags": [
+    "guide",
+    "workflow",
+    "templates",
+    "roles"
+  ],
   "sections": [
     {
       "id": "premise",
@@ -30,7 +35,7 @@
     {
       "id": "review-checklist",
       "heading": "Review Checklist",
-      "content": "Before marking a feature as complete, verify:\n\n**PRD**\n- [ ] Every user story has clear acceptance criteria\n- [ ] Non-goals are explicit (prevents 'but I thought we were also doing X')\n- [ ] Requirements are testable (not vague like 'should be fast')\n\n**Design Spec**\n- [ ] `architecture` defines the CLI/API signature with argument types\n- [ ] `data-modeling` defines node types, edge types, and example node IDs\n- [ ] `decision-log` has at least one entry explaining the core approach\n- [ ] `sequence-diagram` (implementer) matches the interface you defined\n- [ ] `verification-plan` (implementer) covers every user story\n\n**User Guide**\n- [ ] `quick-start` command actually works when you run it\n- [ ] `core-features` matches what the quick-start promises\n- [ ] No feature described in user guide that isn't in the PRD requirements\n\n**Links**\n- [ ] Design spec sections have `links` to the code nodes they describe\n- [ ] `cortex check` reports no `DESC_STALE` on linked sections\n\n**Post-Implementation Protocol**\n- [ ] Protocol checklist completed (see `post-implementation-protocol.json#quick-reference`)\n- [ ] `cortex list_undocumented` shows no gaps for this feature"
+      "content": "Before marking a feature as complete, verify:\n\n**PRD**\n- [ ] Every user story has clear acceptance criteria\n- [ ] Non-goals are explicit (prevents 'but I thought we were also doing X')\n- [ ] Requirements are testable (not vague like 'should be fast')\n\n**Design Spec**\n- [ ] `architecture` defines the CLI/API signature with argument types\n- [ ] `data-modeling` defines node types, edge types, and example node IDs\n- [ ] `decision-log` has at least one entry explaining the core approach\n- [ ] `sequence-diagram` (implementer) matches the interface you defined\n- [ ] `verification-plan` (implementer) covers every user story\n\n**User Guide**\n- [ ] `quick-start` command actually works when you run it\n- [ ] `core-features` matches what the quick-start promises\n- [ ] No feature described in user guide that isn't in the PRD requirements\n\n**Links**\n- [ ] Design spec sections have `links` to the code nodes they describe\n- [ ] `cortex check` reports no `DESC_UPDATED` on linked sections\n\n**Post-Implementation Protocol**\n- [ ] Protocol checklist completed (see `post-implementation-protocol.json#quick-reference`)\n- [ ] `cortex list_undocumented` shows no gaps for this feature"
     },
     {
       "id": "anti-patterns",
