@@ -13,10 +13,7 @@
       "content": "Adds an optional `new_id` parameter to the existing `cortex_update_section` MCP tool. When provided, the tool renames the section ID across the DocJSON file on disk, the database (doc_sections, edges, history), and re-indexes.\n\n**Scope:** MCP tool change only. The viz frontend does not use this directly — it writes the full doc via PUT which triggers a full re-index. The `new_id` parameter is for agents that want atomic, history-preserving renames.\n\n**ID format:** The `new_id` must be a simple slug (lowercase, hyphens, no dots). The full qualified ID is reconstructed from the parent path automatically, matching how `cortex_add_section` works.",
       "links": [
         {
-          "node_id": "cortex::cortex.mcp_server::cortex_update_section"
-        },
-        {
-          "node_id": "cortex::cortex.index.db::rename_doc_section"
+          "node_id": "cortex::cortex.mcp.doc::cortex_update_section"
         }
       ]
     },

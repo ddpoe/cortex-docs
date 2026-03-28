@@ -18,9 +18,6 @@
       "content": "When `cortex_build` was called via the MCP server, it hung indefinitely with no indication of where it was stuck. Investigation revealed three compounding gaps:\n\n**1. `mcp_server.py` has zero logging.** Not a single `import logging`. When a tool call takes 30 seconds or hangs, the only signal is silence. There is no way to distinguish \"still scanning files\" from \"blocked on SQLite lock\" from \"subprocess waiting for git\".\n\n**2. Core engine logging is warnings-only.** `builder.py` has a logger but only emits `logger.warning()` for scanner errors and purge activity. No timing, no progress milestones, no phase boundaries. A build that scans 200 files and computes staleness for 300 nodes reports nothing until it either finishes or fails.\n\n**3. ~20 `except Exception: pass` sites silently swallow errors.** Across `doc_scanner.py`, `json_doc_scanner.py`, `module_scanner.py`, `builder.py`, `diff.py`, and `mcp_server.py`, exception handlers catch errors and either return empty results or continue silently. An entire doc directory can fail to parse, dFlow edge imports can fail completely, and git subprocess calls can error — all without any trace.\n\n**4. 6 subprocess calls have no timeout.** `diff.py` runs `git show`, `git log`, and `git ls-tree` with no timeout. `cli.py` runs `git rev-parse HEAD` with no timeout. These can hang indefinitely on Windows, on network drives, or when git prompts for auth. By contrast, `runner.py::get_git_sha` already has a 5-second timeout — proving the pattern is known but inconsistently applied.\n\n**5. SQLite lock contention is invisible.** ADR-011 added `timeout=5` to `_connect()`, so writers wait up to 5 seconds for the lock. But if a lock wait succeeds after 3 seconds, nothing is logged. Slow lock acquisition — the early warning sign of contention problems — is completely invisible.",
       "links": [
         {
-          "node_id": "cortex::cortex.mcp_server"
-        },
-        {
           "node_id": "cortex::cortex.index.builder::build"
         },
         {
@@ -28,6 +25,9 @@
         },
         {
           "node_id": "cortex::cortex.index.staleness::compute_staleness"
+        },
+        {
+          "node_id": "cortex::cortex.mcp"
         }
       ]
     },

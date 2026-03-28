@@ -10,7 +10,7 @@
     {
       "id": "overview",
       "heading": "Overview",
-      "content": "The cortex MCP server exposes 20 tools via the Model Context Protocol. All tools are implemented in `cortex/mcp_server.py` using the FastMCP framework. Each tool accepts `project_root` (str) as its first parameter.",
+      "content": "The cortex MCP server exposes 28 tools via the Model Context Protocol. Tool implementations live in sub-modules under `cortex/mcp/` (query, doc, lifecycle, dflow), with `cortex/mcp_server.py` serving as the thin registration layer using the FastMCP framework. Each tool accepts `project_root` (str) as its first parameter.\n\nTools are grouped by concern:\n- **Query tools** (8): cortex_search, cortex_list, cortex_render, cortex_graph, cortex_sql, cortex_source, cortex_list_tags, cortex_list_undocumented\n- **Doc tools** (9): cortex_write_doc, cortex_read_doc, cortex_update_section, cortex_add_section, cortex_delete_section, cortex_delete_doc, cortex_add_link, cortex_delete_link, cortex_update_doc_meta\n- **Lifecycle tools** (9): cortex_build, cortex_check, cortex_report, cortex_history, cortex_diff, cortex_mark_clean, cortex_purge_node, cortex_list_reference_points, cortex_checkout\n- **dFlow tools** (2): cortex_workflow_list, cortex_workflow_detail",
       "level": 2
     },
     {
