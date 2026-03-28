@@ -1,0 +1,30 @@
+{
+  "title": "PEV Efficiency: pev-2026-03-27-mcp-audit-refactor.",
+  "tags": [
+    "pev-efficiency",
+    "pev-cycle"
+  ],
+  "sections": [
+    {
+      "id": "summary",
+      "heading": "Summary",
+      "content": "Cycle: pev-2026-03-27-mcp-audit-refactor.\nSession: `6a1da0a9-cce0-42ca-a87b-26b5d5c9df14.jsonl`\nRecords: 129\nSubagent dispatches: 1"
+    },
+    {
+      "id": "handoff-timeline",
+      "heading": "Handoff Timeline",
+      "content": "| # | Role | Description | Calls | Duration | Gap | Issues |\n|--:|------|-------------|------:|---------:|----:|--------|\n| 1 | auditor | PEV Auditor continuation | 0 | — | — | — |"
+    },
+    {
+      "id": "orchestrator",
+      "heading": "Orchestrator",
+      "content": "**48 tool calls**\n\n- 18 mcp__cortex__cortex_read_doc\n- 13 Bash\n- 5 ToolSearch\n- 3 mcp__cortex__cortex_check\n- 2 AskUserQuestion\n- 2 Write\n- 2 mcp__cortex__cortex_update_section\n- 1 mcp__cortex__cortex_build\n- 1 Read\n- 1 mcp__cortex__cortex_update_doc_meta"
+    },
+    {
+      "id": "auditor-1",
+      "heading": "Auditor: PEV Auditor continuation",
+      "content": "**PEV Auditor continuation**\n\n54 tool calls in 6.7 min\n\n**Category breakdown:**\n\n**Tool frequency:**",
+      "sections": []
+    }
+  ]
+}

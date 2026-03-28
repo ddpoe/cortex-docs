@@ -1,14 +1,13 @@
 {
   "title": "PEV Cycle: pev-2026-03-27-mcp-audit-refactor",
   "tags": [
-    "pev-cycle",
-    "pev-active"
+    "pev-cycle"
   ],
   "sections": [
     {
       "id": "status",
       "heading": "Status",
-      "content": "Phase: auditor\nBaseline SHA: 0e59255ef66dce53ca6465941dc04ac54f86d96b\nStarted: 2026-03-27\nCycle ID: pev-2026-03-27-mcp-audit-refactor\n\nPhase transitions:\n- planning: 2026-03-27 — cycle created\n- builder: 2026-03-27 — plan approved (scope narrowed to Group 1 only)\n- auditor: 2026-03-27 — builder complete, merged (fast-forward ce35ba9)"
+      "content": "Phase: completed\nBaseline SHA: 0e59255ef66dce53ca6465941dc04ac54f86d96b\nCommit SHA: 71a7524e1283f4333a6e9e881bab9e1c2e540df3\nStarted: 2026-03-27\nCompleted: 2026-03-28\nCycle ID: pev-2026-03-27-mcp-audit-refactor\n\nPhase transitions:\n- planning: 2026-03-27 — cycle created\n- builder: 2026-03-27 — plan approved (scope narrowed to Group 1 only)\n- auditor: 2026-03-27 — builder complete, merged (fast-forward ce35ba9)\n- completed: 2026-03-28 — committed as 71a7524"
     },
     {
       "id": "request",

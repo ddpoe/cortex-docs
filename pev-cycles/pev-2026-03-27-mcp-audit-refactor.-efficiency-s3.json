@@ -1,0 +1,41 @@
+{
+  "title": "PEV Efficiency: pev-2026-03-27-mcp-audit-refactor.",
+  "tags": [
+    "pev-efficiency",
+    "pev-cycle"
+  ],
+  "sections": [
+    {
+      "id": "summary",
+      "heading": "Summary",
+      "content": "Cycle: pev-2026-03-27-mcp-audit-refactor.\nSession: `7244847c-e74e-4114-9d1b-93c1aa22ec8b.jsonl`\nRecords: 93\nSubagent dispatches: 2"
+    },
+    {
+      "id": "handoff-timeline",
+      "heading": "Handoff Timeline",
+      "content": "| # | Role | Description | Calls | Duration | Gap | Issues |\n|--:|------|-------------|------:|---------:|----:|--------|\n| 1 | architect | PEV Architect: MCP audit + refactor | 0 | — | — | — |\n| 2 | architect | Relay user feedback to Architect | 0 | — | — | — |"
+    },
+    {
+      "id": "orchestrator",
+      "heading": "Orchestrator",
+      "content": "**27 tool calls**\n\n- 12 mcp__cortex__cortex_read_doc\n- 4 Bash\n- 4 ToolSearch\n- 2 TaskCreate\n- 2 TaskUpdate\n- 1 mcp__cortex__cortex_write_doc\n- 1 Write\n- 1 AskUserQuestion"
+    },
+    {
+      "id": "architect",
+      "heading": "Architect (2 dispatches, 0 calls)",
+      "content": "",
+      "sections": [
+        {
+          "id": "dispatch-1",
+          "heading": "PEV Architect: MCP audit + refactor — 0 calls",
+          "content": "No tool calls."
+        },
+        {
+          "id": "dispatch-2",
+          "heading": "Relay user feedback to Architect — 0 calls",
+          "content": "No tool calls."
+        }
+      ]
+    }
+  ]
+}

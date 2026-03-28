@@ -1,0 +1,52 @@
+{
+  "title": "PEV Efficiency: pev-2026-03-27-mcp-audit-refactor.",
+  "tags": [
+    "pev-efficiency",
+    "pev-cycle"
+  ],
+  "sections": [
+    {
+      "id": "summary",
+      "heading": "Summary",
+      "content": "Cycle: pev-2026-03-27-mcp-audit-refactor.\nSession: `4bd888f2-e7d0-469f-beec-3c6b6c408b52.jsonl`\nRecords: 178\nSubagent dispatches: 4"
+    },
+    {
+      "id": "handoff-timeline",
+      "heading": "Handoff Timeline",
+      "content": "| # | Role | Description | Calls | Duration | Gap | Issues |\n|--:|------|-------------|------:|---------:|----:|--------|\n| 1 | Explore | Assess MCP refactor cycle scope | 0 | — | — | — |\n| 2 | builder | PEV Builder: MCP structural refactor | 0 | — | — | — |\n| 3 | reviewer | PEV Reviewer: MCP structural refactor | 0 | — | — | — |\n| 4 | auditor | PEV Auditor: MCP structural refactor | 0 | — | — | — |"
+    },
+    {
+      "id": "orchestrator",
+      "heading": "Orchestrator",
+      "content": "**53 tool calls**\n\n- 17 mcp__cortex__cortex_read_doc\n- 9 Bash\n- 9 mcp__cortex__cortex_update_section\n- 4 ToolSearch\n- 4 Write\n- 3 Read\n- 2 mcp__cortex__cortex_list\n- 2 mcp__cortex__cortex_build\n- 1 mcp__cortex__cortex_search\n- 1 mcp__cortex__cortex_checkout\n- 1 mcp__cortex__cortex_check"
+    },
+    {
+      "id": "builder-1",
+      "heading": "Builder 1: Assess MCP refactor cycle scope",
+      "content": "**Assess MCP refactor cycle scope**\n\nNo tool calls captured.",
+      "sections": []
+    },
+    {
+      "id": "builder-2",
+      "heading": "Builder 2: PEV Builder: MCP structural refactor",
+      "content": "**PEV Builder: MCP structural refactor**\n\n60 tool calls in 25.4 min\n\n**Category breakdown:**\n\n**Tool frequency:**",
+      "sections": []
+    },
+    {
+      "id": "reviewers",
+      "heading": "Reviewers (1 dispatches)",
+      "content": "**1 dispatches, 0 tool calls**\n\n- PEV Reviewer: MCP structural refactor: 0 calls"
+    },
+    {
+      "id": "auditor-1",
+      "heading": "Auditor: PEV Auditor: MCP structural refactor",
+      "content": "**PEV Auditor: MCP structural refactor**\n\nNo tool calls captured.",
+      "sections": []
+    },
+    {
+      "id": "recommendations",
+      "heading": "Recommendations",
+      "content": "- **pev-builder** (PEV Builder: MCP structural refactor): dispatch missing context bundle — orchestrator should inline pitch + cortex_source output"
+    }
+  ]
+}
